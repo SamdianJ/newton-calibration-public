@@ -1,0 +1,32 @@
+{
+  "description": "Historical run identities and original evidence fingerprints for the cable case. Hashes identify original records before portable export, not the current bundled files. Git tracks bundled-file revisions; solver provenance is recorded separately in solver/.",
+  "runs": {
+    "A": {
+      "run_id": "20261013T034559Z-9fa415c5",
+      "resolved_sha256": "582ea6c9876775485c2960fb7fcdbb600a8b6b4430c4931e6b3a79000f9032e1",
+      "result_sha256": "08a4ccc6f5a6ff86b2c81083f9182c7bf4f30d14f91f207f60747d38403c59ed"
+    },
+    "B": {
+      "run_id": "20261013T060515Z-210cecda",
+      "resolved_sha256": "cd0ac4348cddeded60a8b5d7d691126d9b6575c3f51661c94bb01e1465b487f6",
+      "result_sha256": "c4b4266aa60dce7d1846606b5b124b1b8e2e57546d43a21b18ab05c30f58509b"
+    },
+    "Bstar": {
+      "run_id": "20261013T131029Z-e71e55c0",
+      "resolved_sha256": "f576d2d5d06bb2192a3ba4963efbc663feaefa843031d82d0e5a81c5f83be7f5",
+      "result_sha256": "db41aedd5128f2c0158faf202c2332a48a8798d78946f2fed18b1b337254c746"
+    },
+    "C": {
+      "run_id": "20261013T140350Z-fe034cf3",
+      "resolved_sha256": "2e76020751c77fc97b2214711b9e2bf229b3fa54ad76bea50b31d8a46d7ab1d9",
+      "result_sha256": "b135d421b55d016f7f113dc2166293dcb39bfffb27fc7c07d3111b8e6cfc85db"
+    }
+  },
+  "original_evidence_sha256": {
+    "data/static_observations.json": "672ba235396b2859b18122cffe962a15d00c736b2ba58b13d6fdf8ba9912ec54",
+    "data/release_observations.json": "200a48d52abb654b8e0734eaa38b1d358e8c8bec5efe256550e1b11156149bb6",
+    "data/rest_observations.json": "8422b4df0e4cb33a9cb49a18a2933d5083bcf30e287002e947989f891f046f76",
+    "data/sls_history.json": "e6352372f64b2a5191f644934c819eb66da7ae3e9b9a9ffb72e776a5000779d9",
+    "data/asset.md": "95091d84f88759c0e1244beb46d4927e9ccd9d629674eed56866504a5f1e9c0c"
+  }
+}
