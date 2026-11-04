@@ -3,7 +3,7 @@
 
 """Public objects for composable, batch parameter tuning."""
 
-from .asset import Asset, Environment, SimulationError
+from .asset import Asset, BatchEnvironment, Environment, SimulationError
 from .data import BatchResult, DecisionResult, RunState, Trace, TrialBatch, TuningResult
 from .decision import Decision
 from .evaluator import Evaluator
@@ -19,6 +19,7 @@ from .validator import Validator
 __all__ = [
     "CMAES",
     "Asset",
+    "BatchEnvironment",
     "BatchResult",
     "Decision",
     "DecisionResult",
