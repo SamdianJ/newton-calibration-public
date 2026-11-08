@@ -10,6 +10,8 @@ Newton Calibration turns measured observations, a simulator adapter and a parame
 
 [Local report preview](docs/publishing-results.md) · [User guide](docs/user-guide.md) · [Codex skills](docs/codex-skills.md) · [Cable A → B → C example](examples/cable_calibration/README.md)
 
+For task definition, experiment design, detailed member usage, and residual-based troubleshooting, see the [calibration guide](docs/calibration-guide.md).
+
 ## Quick start
 
 Python 3.11+; the core requires NumPy. Newton is **not** a core dependency.

@@ -2,6 +2,8 @@
 
 [Home](../README.md) · [Skills](codex-skills.md) · [Real cable example](../examples/cable_calibration/README.md)
 
+The [calibration guide](calibration-guide.md) covers the engineering workflow, member responsibilities and arguments, a fully assembled example, and troubleshooting from residuals.
+
 ## 1. Install
 
 Use Python 3.11 or newer in an environment of your choice:
