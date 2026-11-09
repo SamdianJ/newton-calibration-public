@@ -2,9 +2,9 @@
 
 [Home](../README.md) · [Installation and quick start](user-guide.md) · [Cable example](../examples/cable_calibration/README.md)
 
-This guide explains how to define an identification problem, design experiments, choose estimation methods, interpret calibration results, and connect that work to Newton Calibration. It covers rigid bodies, deformable bodies, contact, and combined robotic systems.
+Use this guide to define an identification problem, design experiments, choose an estimator, and interpret results with Newton Calibration. It covers rigid bodies, deformable bodies, contact, and combined robotic systems.
 
-The guide follows four connected questions. What should the evidence establish? How should experiments and evidence be organized? How do the software members execute the problem? Which conclusions do the results support? Experimental design, physical interpretation, and real-system acceptance require work alongside the software lifecycle.
+You supply the experiments, physical interpretation, and real-system acceptance tests. Newton Calibration runs the defined problem and records the evidence needed to assess its results.
 
 Start with [Section 3](#3-connecting-a-problem-to-newton-calibration) if you already have data and an adapter. Follow [Section 2](#2-workflow-and-stage-deliverables) to define a new problem. Use [Section 4](#4-using-residuals-to-plan-the-next-iteration) to investigate unsuccessful results.
 
@@ -12,36 +12,32 @@ Start with [Section 3](#3-connecting-a-problem-to-newton-calibration) if you alr
 
 ### 1.1 Three related goals with distinct evidence requirements
 
-Physical parameter credibility, predictive accuracy, and task success each require specific evidence.
-
 | Goal | What the evidence should establish |
 |---|---|
 | Credible physical parameters | Parameters have a clear physical meaning and sufficient measurement and identifiability support |
 | Credible simulation predictions | The model predicts real responses under conditions withheld from fitting |
 | Effective task transfer | Control trained or planned with the model accomplishes the task on the real system |
 
-These forms of evidence can support one another. Compensating parameters can produce similar trajectories. A biased model can predict accurately within a restricted operating range. Robust control can tolerate substantial parameter error. State the primary goal and the conclusions still awaiting validation. Model reliability involves model assumptions, numerical error, and uncertainty together. [R1] [R6]
+State which goal the calibration serves and which conclusions still need validation. Evidence for these goals can reinforce one another. Compensating parameters can produce similar trajectories, and a biased model can predict accurately within a restricted range. Robust control may also tolerate substantial parameter error. Assess reliability using evidence about model assumptions, numerical error, and uncertainty. [R1] [R6]
 
-The basic calibration deliverable in this guide is **evidence-supported parameters and response predictions under a declared model, numerical configuration, dataset, and domain of applicability, with unresolved uncertainty retained**. Claims about sim-to-real transfer also require real-system task acceptance after freezing the model and strategy.
+A calibration should provide evidence for its parameters and response predictions under a stated model, numerical configuration, dataset, and domain of applicability. Report the uncertainty that remains. To claim sim-to-real transfer, also test the task on the real system after freezing the model and strategy.
 
 ### 1.2 Identification methods
 
-Method selection depends on the available equations, observations, gradients, statistical objectives, and computational cost. Model structure, estimation criteria, and optimization tools are separate choices. The same physical model can be used with several solution methods, and the following approaches can be combined. [R4]
+Choose a method based on the available equations, observations, gradients, statistical goal, and computational cost. Choose the model structure, estimation criterion, and optimizer separately. Several solution methods can work with the same physical model, and approaches can be combined. [R4]
 
 | Approach | How it uses information | Applicability and limitations |
 |---|---|---|
 | Structured regression and physically constrained identification | Exploit linear structure in parameters or parameter combinations and impose physical constraints | Requires a known dynamics structure and reliable inputs and torque data. Often identifies base parameter combinations. Constraints still require informative experiments |
-| State-space and prediction-error identification | Specify state transitions, observations, initial states, delays, and noise, then minimize prediction error | Suits input–output dynamics and hidden states. Evaluate one-step prediction, multistep prediction, and free forward rollout separately |
+| State-space and prediction-error identification | Specify state transitions, observations, initial states, delays, and noise, then minimize prediction error | Suits input-output dynamics and hidden states. Evaluate one-step prediction, multistep prediction, and free forward rollout separately |
 | Black-box forward-simulation search | Evaluate candidate parameters through simulation and scoring | Requires only forward evaluations. Cost depends on dimension, rollout cost, and search difficulty |
 | Differentiable simulation and gradient methods | Obtain loss derivatives through automatic differentiation or adjoints | Can be efficient with reliable gradients. Check contact transitions, long-horizon backpropagation, scaling, and local minima |
 | Bayesian identification and simulation-based inference (SBI) | Estimate parameter or predictive distributions under explicit prior, noise, and model-discrepancy assumptions | Supports uncertainty and multiple solutions. Check prior sensitivity, inference calibration, and posterior predictions |
 | Physical models with residual models | Use learnable terms to represent missing behavior | Specify whether compensation enters dynamics, observations, or control, and assess generalization and confounding with physical parameters |
 
-Physical-consistency constraints for robot inertial parameters, differentiable joint identification in DPSI, conditional-density-based SBI, and Universal Differential Equations illustrate these approaches. Their software availability in Newton Calibration is described separately below. [R5] [R7] [R8] [R9]
+Examples include physical-consistency constraints for robot inertial parameters, DPSI's differentiable joint identification, conditional-density-based SBI, and Universal Differential Equations. Section 1.3 lists the methods available in Newton Calibration. [R5] [R7] [R8] [R9]
 
 ### 1.3 Newton Calibration uses black-box forward simulation and search
-
-The current module evaluates candidates through the following sequence.
 
 $$
 \theta
@@ -50,17 +46,17 @@ $$
 \longrightarrow \text{loss}.
 $$
 
-Here, black-box describes the interface between search and simulation. The optimizer proposes parameters, the simulator returns responses, and the evaluator computes objectives. The underlying model can still contain explicit geometry, dynamics, constitutive equations, and contact laws.
+Black-box refers to how the optimizer uses the simulator. It proposes parameters and receives scores computed from simulated responses. The model itself can contain explicit geometry, dynamics, constitutive equations, and contact laws.
 
-CMA-ES, the cross-entropy method (CEM), parallel sampling, and Bayesian optimization are possible methods for this class of problem. Parallel simulation can reduce wall-clock time for candidate batches. Actual speedup depends on backend batching, resource use, and individual simulation cost.
+CMA-ES, the cross-entropy method (CEM), parallel sampling, and Bayesian optimization can solve this kind of problem. Evaluating candidates in parallel can reduce wall-clock time, depending on backend batching, resource use, and the cost of each simulation.
 
-**The built-in optimizers are `GridSearch` and `CMAES`.** CEM, Bayesian optimization, differentiable optimization, and Bayesian posterior inference require additional member implementations or external workflows. Automated physical experiment design, policy training, domain-randomization training, and online adaptation also require external systems. [User guide](user-guide.md)
+The built-in optimizers are `GridSearch` and `CMAES`. CEM, Bayesian optimization, differentiable optimization, and Bayesian posterior inference require additional members or external workflows. Use external systems for automated physical experiment design, policy training, domain-randomization training, and online adaptation. [User guide](user-guide.md)
 
-The module organizes a common lifecycle that freezes the problem, checks parameter bindings and numerical settings, analyzes local sensitivity and identifiability, evaluates and scores candidates, manages budgets, and exports, reloads, retests, and validates the selected candidate. Measurement, model selection, and real-system experiments complete the surrounding engineering workflow.
+The module freezes the problem definition, checks parameter bindings and numerical settings, and analyzes local sensitivity and identifiability. It then evaluates candidates within a budget and exports, reloads, retests, and validates the selected candidate. Measurement, model selection, and real-system experiments are part of the wider engineering workflow.
 
 ## 2 Workflow and stage deliverables
 
-The following stages apply to rigid bodies, deformable bodies, contact, and combined robotic systems. Their practical order depends on observability, cost, and error dependencies. Model, numerical, and experimental decisions may require several iterations.
+The order of work depends on observability, cost, and how errors affect one another. Expect to revisit model choices, numerical settings, and experiments as evidence develops.
 
 | Stage | Main work | Required record |
 |---|---|---|
@@ -76,9 +72,9 @@ The following stages apply to rigid bodies, deformable bodies, contact, and comb
 | 10 Sealed task acceptance | Freeze model and strategy, then perform independent real-system tests | Success rate and confidence interval, forces, timing, failure modes, and applicability |
 | 11 Versioned release and maintenance | Preserve model, numerical, data, parameter, and validation versions | Reproducible parameter package, model card, and recalibration triggers |
 
-This organization draws on verification, validation, and uncertainty quantification (VVUQ), application-oriented identification, and active experiment design. It is an engineering organization of deliverables, with influences from several sources. [R1] [R2] [R3]
+The stages organize engineering deliverables using ideas from verification, validation, and uncertainty quantification (VVUQ), application-oriented identification, and active experiment design. [R1] [R2] [R3]
 
-Reported intervals require an explicit statistical procedure. If that work is incomplete, report “not estimated” and retain feasible-set or sensitivity evidence. Stages 9 and 10 concern transfer goals. A predictive-model deliverable can mark them inapplicable and state its scope. A task-transfer claim requires Stage 10 evidence.
+State the statistical procedure behind any reported interval. If you have not estimated intervals, say so and retain feasible-set or sensitivity evidence. Stages 9 and 10 apply to transfer goals. Mark them inapplicable when delivering only a predictive model, and state that scope. A task-transfer claim requires Stage 10 evidence.
 
 ```mermaid
 flowchart TD
@@ -99,7 +95,7 @@ flowchart TD
 
 ### Stage 1 Task and domain of applicability
 
-Decompose the task into quantities of interest before choosing parameters to fit. Transport, alignment, initial contact, guided insertion, and latch engagement in cable insertion place different demands on the model.
+Define the task's quantities of interest before choosing parameters to fit. In cable insertion, transport, alignment, initial contact, guided insertion, and latch engagement each place different demands on the model.
 
 | Object or phase | QOIs | Available observations | Relevant mechanisms |
 |---|---|---|---|
@@ -112,11 +108,9 @@ Record parameters and responses separately. Tracking lag may depend on drive gai
 
 Define the primary objective, critical acceptance metrics, and diagnostic metrics before searching. Preserve critical peaks, event timing, and local worst-case errors alongside average error. Set thresholds using task tolerances, measurement error, and the numerical-error allowance. Retain previous definitions and reasons when revising them. The applicability domain should cover the object, speed, load, temperature or rate conditions, initial state, and contact modes.
 
-The stage delivers a task-to-QOI map, applicability domain, acceptance thresholds, and error budget.
-
 ### Stage 2 Model definition
 
-Trace each required mechanism through physical phenomenon, model equation, parameter, and solver implementation. Specify actuation, friction, limits, and control timing for robots. Specify bending, torsion, natural shape, dissipation, and material memory for deformables. Contact problems also require collision geometry, contact laws, and material pairs.
+For each required mechanism, check how the physical phenomenon maps to an equation, its parameters, and the solver implementation. A robot model needs actuation, friction, limits, and control timing. A deformable model needs bending, torsion, natural shape, dissipation, and material memory. Contact also requires collision geometry, contact laws, and material pairs.
 
 A complete forward problem can be written as
 
@@ -132,8 +126,6 @@ Record phenomena the model represents, intentionally omits, or cannot express. W
 
 Select a solver by checking physical capabilities, parameter binding and observation interfaces, numerical accuracy, and budget. Newton's feature matrix helps shortlist candidates. Verify the actual version and backend, including whether the backend consumes each field used by the adapter. [R10]
 
-The stage delivers assumptions and candidate models, required internal states, the solver revision, and explicit capabilities and limitations.
-
 ### Stage 3 Parameter and evidence registration
 
 #### Classify quantities by their role in the equations
@@ -148,13 +140,13 @@ The stage delivers assumptions and candidate models, required internal states, t
 | Measurement and initial state | Transforms, offsets, time shifts, initial velocity, prestress | Calibrate independently or treat as nuisance parameters with prior information |
 | Numerical configuration | dt, substeps, resolution, iterations, tolerances, precision | Select through numerical-error checks and retain as conditions of the parameter result |
 
-Nuisance parameters are auxiliary quantities needed to interpret observations correctly while estimating the primary parameters. Manage the seven categories separately and justify which quantities enter a joint search.
+Nuisance parameters account for auxiliary effects that influence the observations while you estimate the primary parameters. Manage the seven categories separately and justify which quantities enter a joint search.
 
 Fields such as `stiffness`, `margin`, and `softness` can represent physical effective compliance, collision-geometry offsets, or numerical regularization. Classify them after checking their equations, dimensions, and software version. Normally, Stage 5 selects numerical settings. If they are deliberately co-tuned to obtain a task-equivalent model, state the resulting conditional interpretation and validate the new configuration. [R10]
 
 #### Build a Parameter Registry and Prior Envelope
 
-The Parameter Registry records physical definitions, units, software mappings, sources, ranges, direct-measurement status, search participation, dependencies, applicable temperature/rate/load conditions, and versions. Include the following information to make the definition executable.
+Keep a Parameter Registry with enough information to trace each quantity from its physical definition and evidence to its use in simulation.
 
 | Information | What to record |
 |---|---|
@@ -169,21 +161,19 @@ The Prior Envelope records justified ranges and dependencies. Distinguish hard p
 
 Positive parameters spanning orders of magnitude can use logarithmic search. Handle zero-valued friction or damping separately when needed. Check actual readback, rebuilding/resetting, single-parameter perturbations, and state isolation between candidates for every search parameter. Material-memory initialization is also part of the problem definition.
 
-The stage delivers the Registry and Prior Envelope with evidence and dependencies, plus records confirming that the parameters affect simulation.
-
 ### Stage 4 Measurement and data design
 
 Record timestamps, frames, units, sampling and filtering, commands and feedback, sensor calibration, initial and boundary conditions, processing scripts, and data versions. Repeat experiments to estimate noise and experimental variability before interpreting small improvements.
 
-Record **measurement sampling rate, command update rate, controller update rate, physics integration step, and output sampling rate** individually. A 50 Hz recording can require a much faster physical integrator. Image-derived centerlines require projection, occlusion, and pixel-to-physical-coordinate definitions. Models such as the standard linear solid (SLS) also require preload, hold duration, and pre-release history.
+Record the measurement sampling rate, command update rate, controller update rate, physics integration step, and output sampling rate separately. A 50 Hz recording can require a much faster physical integrator. For image-derived centerlines, specify projection, occlusion, and the pixel-to-physical-coordinate conversion. Models such as the standard linear solid (SLS) also need preload, hold duration, and pre-release history.
 
-State which quantities are inputs and which are predictions under test. Prescribed measured end-effector motion supports evaluation of an object's response under that boundary motion. Robot dynamics and control response require their own tests.
+State which quantities are inputs and which predictions you are testing. Prescribing measured end-effector motion lets you evaluate an object's response to that motion. Test robot dynamics and control response separately.
 
 Split by independent experiment or acquisition group. Fitting data support estimation, development data support residual diagnosis and model selection, and sealed data support acceptance after freezing decisions. Time slices from one recording usually share initial conditions, noise, and processing errors. Once a dataset informs changes to model, bounds, loss, or thresholds, register it as development evidence for subsequent work.
 
-Reserve evidence separately for Stage 8 response validation and Stage 10 real-system task acceptance. With limited data, development-stage cross-validation can help, while the absence of an independent sealed test remains an explicit limitation.
+Reserve separate evidence for Stage 8 response validation and Stage 10 real-system task acceptance. With limited data, use cross-validation during development and report whether an independent sealed test is still missing.
 
-The stage delivers measurement and synchronization protocols, initialization records, reproducible processing, and grouped datasets with declared uses.
+Save the measurement and synchronization protocols, initialization records, processing procedure, and each dataset's group and intended use.
 
 ### Stage 5 Numerical qualification
 
@@ -191,15 +181,15 @@ Assess whether simulation is sufficiently stable under numerical changes before 
 
 Keep the physical problem consistent during comparisons. Spatial refinement requires appropriate mappings for mass, stiffness, damping, and boundaries. Record the refinement sequence, QOI changes, and allowed numerical-error budget while keeping constitutive assumptions fixed.
 
-Repeated agreement at fixed settings establishes repeatability. Accuracy claims need suitable refinement evidence. Nonmonotonic changes are diagnostic information. Acceptance follows the declared error budget, protocol, and scope.
+Agreement across repeated runs at fixed settings establishes repeatability. To assess accuracy, use suitable refinements and judge the results against the declared error budget, protocol, and scope. Investigate nonmonotonic changes as part of that assessment.
 
-When estimating effective parameters for a particular discretization, spatial changes may be designated diagnostic while deployment time/iteration accuracy remains an acceptance condition. The parameter package then carries that discretization, and cross-discretization transfer requires separate evidence.
+For effective parameters tied to a particular discretization, you may use spatial changes as a diagnostic and require time/iteration accuracy for deployment. Include that discretization in the parameter package. Transfer to another discretization requires separate evidence.
 
-The stage delivers a frozen numerical configuration, accuracy or repeatability mode, checked conditions and boundaries, and numerical-error records. Reassess qualification when the model, parameter range, or deployment configuration changes.
+Freeze the chosen configuration and record its accuracy or repeatability mode, checked conditions and boundaries, and numerical errors. Reassess qualification when the model, parameter range, or deployment configuration changes.
 
 ### Stage 6 Identifiability and experiment design
 
-Identifiability concerns whether different parameters produce distinguishable responses under the current model, experiments, and observation precision. Task sensitivity concerns whether parameter changes affect the task's QOIs. Assess both dimensions.
+Ask whether different parameters produce distinguishable responses under the current model, experiments, and observation precision. This is identifiability. Also assess task sensitivity, or how parameter changes affect the task's QOIs.
 
 #### Use two dimensions to set priorities
 
@@ -224,15 +214,15 @@ Local full rank depends on the analysis point, scaling, and threshold. Global un
 | Releases at multiple amplitudes, holds, cyclic loading | Separate inertia, damping, viscoelasticity, and history | Release state, preload, history, sampling, force/displacement |
 | Contact/sliding motions at different normal loads | Separate contact parameters, boundaries, and drive compensation | Material pair, geometry, normal force, surface, velocity |
 
-Material and contact parameters can affect the same observations. Friction depends on normal load, which depends on geometry, material, clamping, and control. DPSI treats material and environment parameters within a shared differentiable forward process. Such joint identification addresses coupling, while multiple actions, observations, and independent predictions help constrain compensating explanations. [R7]
+Material and contact parameters can affect the same observations. Friction depends on normal load, which depends on geometry, material, clamping, and control. DPSI jointly identifies material and environment parameters through a shared differentiable forward model. Use multiple actions, observations, and independent predictions to help distinguish coupled effects from parameter compensation. [R7]
 
 Low-cost experiments with relatively isolated mechanisms can constrain parameters before joint system-level checks. Retain their uncertainty when fixing stage-wise estimates, since treating estimates as exact transfers error into later parameters. Active experiment design can choose excitation to reduce target uncertainty. The current module supplies local sensitivity analysis, while choosing and executing physical experiments remains external work. [R2] [R3]
 
-The stage delivers identifiable parameters or combinations, temporarily fixed quantities and their justification, and prioritized additional experiments and observations.
+Record which parameters or combinations are identifiable, why other quantities are temporarily fixed, and which experiments or observations to add first.
 
 ### Stage 7 Parameter estimation
 
-Estimate within the declared model, observations, initial states, boundaries, and numerical settings. Choose staged or joint estimation based on information, cost, and dependencies. Preserve earlier evidence and uncertainty in staged estimation, perform constrained joint rechecks where needed, and verify that system-level adjustments still explain component experiments.
+Estimate parameters for the declared model, observations, initial states, boundaries, and numerical settings. Choose staged or joint estimation based on the information available, cost, and parameter dependencies. In staged estimation, retain earlier evidence and uncertainty. Recheck parameters jointly within those constraints where needed, and confirm that system-level adjustments still explain component experiments.
 
 #### Different evidence types constrain different responses
 
@@ -242,21 +232,21 @@ Estimate within the declared model, observations, initial states, boundaries, an
 | Motion trajectories | Dynamics, frequency, phase, decay | Unmeasured force scale and hidden internal states |
 | Forces and torques | Resistance, load paths, stiffness, dissipation | Sensor offsets and gravity/inertia-compensation errors |
 | Tactile observations and slip | Local contact, grasping, tangential response | Confounding between sensing elastomer and object parameters |
-| Force–displacement and cyclic curves | Contact events, energy, hysteresis, locking | Time alignment and rate effects |
+| Force-displacement and cyclic curves | Contact events, energy, hysteresis, locking | Time alignment and rate effects |
 | Task-success events | Task boundaries and failure modes | Incorrect loads and compensation during successful execution |
 
-These data provide relevant information, with uniqueness depending on the full problem. Shape and motion also depend on mass, boundaries, and initial states. Interpreting static observations as long-term stiffness requires hold-time and relaxation-state records. DiffTactile illustrates combining motion, force, and tactile evidence. [R16]
+Whether these observations uniquely determine parameters depends on the full problem. Shape and motion also depend on mass, boundaries, and initial states. Record hold time and relaxation state when using static observations to estimate long-term stiffness. DiffTactile combines motion, force, and tactile evidence. [R16]
 
 #### Construct losses from evidence
 
 Specify scales, temporal correlation, modality weights, and experiment normalization. Normalize squared millimeters, newtons, and pixels before combining them. Choose normalization so an experiment's frame count alone does not determine its importance. Record noise scales, which describe measurement reliability, separately from task weights, which describe importance.
 
-- **Corresponded trajectories and shapes** require time and spatial alignment. Retain period, decay, and peak/trough timing alongside residuals. Model estimated time offsets explicitly, since unconstrained time warping can hide control delay.
-- **Uncorresponded point clouds** can use Chamfer distance or Earth Mover's Distance (EMD). Specify occlusion, point density, squared or unsquared distance, and whether observations represent surfaces or reconstructed volumes. Filled particles incorporate reconstruction assumptions. DPSI compares observation representations and distance choices. [R7]
-- **Force, torque, tactile, and slip observations** require frame, reference-point, offset, and gravity/inertia-compensation checks. Preserve peaks, impulse, slip onset, and sustained limit violations alongside averages.
-- **Contact, latch, and success events** require detection, matching, and missing-event rules before timing, ordering, or probability comparisons. Missing events must remain represented in scoring.
-- **Work and cyclic hysteresis** can be calculated from synchronized force–displacement curves. Equal work can accompany different peaks and timing, and measured dissipation can include fixture, contact, and drive effects.
-- **Multimodal objectives** should retain physical-unit metrics and critical hard constraints for each channel. Explicit noise covariance or correlated-error models require appropriate implementations and statistical assumptions.
+- Align corresponding trajectories and shapes in time and space. Retain period, decay, and peak/trough timing alongside residuals. Model estimated time offsets explicitly, since unconstrained time warping can hide control delay.
+- For point clouds without correspondence, consider Chamfer distance or Earth Mover's Distance (EMD). Specify occlusion, point density, squared or unsquared distance, and whether observations represent surfaces or reconstructed volumes. Filled particles incorporate reconstruction assumptions. DPSI compares observation representations and distance choices. [R7]
+- Check frames, reference points, offsets, and gravity/inertia compensation for force, torque, tactile, and slip observations. Preserve peaks, impulse, slip onset, and sustained limit violations alongside averages.
+- Define detection, matching, and missing-event rules for contact, latch, and success events before comparing timing, order, or probabilities. Include missing events in scoring.
+- Calculate work and cyclic hysteresis from synchronized force-displacement curves. Equal work can accompany different peaks and timing, and measured dissipation can include fixture, contact, and drive effects.
+- When combining modalities, retain physical-unit metrics and critical hard constraints for each channel. Explicit noise covariance or correlated-error models require appropriate implementations and statistical assumptions.
 
 The default `Evaluator(loss="squared_error")` uses a normalized weighted mean squared error. For experiment $e$, repeat $r$, and valid observation set $\mathcal I_e$, the objective is
 
@@ -278,12 +268,12 @@ The built-in `cross_entropy` mode requires complete normalized probability rows.
 | Known linear parameter structure and reliable dynamic data | Weighted least squares, maximum likelihood, or suitable instrumental-variable methods according to noise assumptions | Base parameter combinations, regressor/noise correlation, likelihood or instrument validity, physical constraints |
 | Low dimension, frequent contact transitions, inexpensive rollouts | CMA-ES, CEM, parallel sampling | Multiple starts, bounds, validation error |
 | Expensive simulation and low dimension | Bayesian optimization or a surrogate | Surrogate error, budget, full-model verification |
-| Higher dimension, reliable gradients, favorable local basin | Gauss–Newton for nonlinear least squares, L-BFGS or Adam for other smooth objectives | Parameter scaling, directional derivatives, local minima |
+| Higher dimension, reliable gradients, favorable local basin | Gauss-Newton for nonlinear least squares, L-BFGS or Adam for other smooth objectives | Parameter scaling, directional derivatives, local minima |
 | Multiple modes with useful gradients in some regions | Global search followed by local differentiable refinement | Equal-budget comparison with a gradient-free baseline |
 | Uncertainty estimation or multiple solutions | MCMC, SMC, approximate SBI, profile likelihood, bootstrap | Prior sensitivity, statistical assumptions, interval or posterior coverage |
 | Persistent mismatch across conditions | Revise constitutive or boundary models, possibly add a residual model | Generalization, interpretability, model version |
 
-This table guides method selection. Least squares specifies an objective and CMA-ES specifies a solution method, so they can be combined. Useful gradients can coexist with difficult simulation objectives. Compare hybrid methods against equal-budget baselines. [R4] [R15]
+Least squares specifies an objective and CMA-ES specifies a solution method, so they can be combined. A simulation objective can remain difficult to optimize even with useful gradients. Compare hybrid methods against equal-budget baselines. [R4] [R15]
 
 #### What an estimate should include
 
@@ -293,7 +283,7 @@ When reporting intervals, state whether they come from repeated experiments, pro
 
 Recheck candidate numerical accuracy under critical conditions and assess how uncertainty affects QOIs. Return to Stage 6 when several parameter sets explain the data equally well, and to Stage 5 when numerical changes exceed budget. Persistent structured residuals after those checks motivate tests of model and boundary assumptions.
 
-The stage delivers parameter values and interpretation conditions, intervals or feasible sets with their methods, loss and residual diagnostics, and unresolved issues.
+Include interpretation conditions, interval or feasible-set methods, loss and residual diagnostics, and unresolved issues with the parameter values.
 
 ### Stage 8 Independent response prediction
 
@@ -303,41 +293,37 @@ Separate any observation prefix used for initialization from the prediction-scor
 
 Report both coverage and width for prediction intervals, specifying whether observation noise or model discrepancy is included. Resampling should preserve complete trajectories or experimental groups when neighboring frames are correlated. Once Stage 8 results inform revisions, they become development evidence. A revised model needs new independent testing or an explicit validation limitation. Keep Stage 10 sealed task data outside parameter, model, randomization-range, controller, and threshold selection.
 
-The stage delivers errors, residuals, and interval evidence for the frozen candidate under new conditions, plus a decision to use it, restrict its applicability, or revise the model.
+Use the errors, residuals, and interval evidence under new conditions to decide whether to use the frozen candidate, restrict its applicability, or revise the model.
 
 ### Stage 9 Transfer strategy design
 
-Select nominal-model training, evidence-based domain randomization, robust control, online adaptation, or residual compensation according to the goal. Mark this stage inapplicable for a parameter-only or predictive-model deliverable. Dynamics randomization has research support, and its use should still be related to the current task and uncertainty. [R13]
+Choose nominal-model training, evidence-based domain randomization, robust control, online adaptation, or residual compensation to suit the goal. Mark this stage inapplicable when delivering only parameters or a predictive model. When using dynamics randomization, explain how it addresses the task and its uncertainty. [R13]
 
 Distinguish uncertainty about one object's parameters, real variation between objects, and robustness stress-test ranges. Preserve parameter correlations and physical constraints when sampling. After expanding the training domain, check numerical usability for representative high-risk configurations.
 
 For online adaptation, state the observations available, updated states or parameters, and update timing. For residual compensation, identify whether it enters dynamics, observations, or control. Correct missing mechanisms and alignment errors as evidence warrants. Use development data for strategy selection, then freeze the strategy and permitted online-update rules.
 
-The stage delivers a training distribution or nominal model, adaptation/compensation mechanisms, coverage limits, and model and strategy versions. Training and deployment are external to the current module.
+Record the training distribution or nominal model, adaptation/compensation mechanisms, coverage limits, and model and strategy versions. Run training and deployment through external tools.
 
 ### Stage 10 Sealed task acceptance
 
-Freeze the model, numerical settings, controller or policy, initialization protocol, success definition, critical thresholds, and statistical method before independent real-system testing. Report success rate together with force peaks, errors, timing, maintained states, and failure modes. State the task-success evidence and physical-parameter evidence separately.
+Freeze the model, numerical settings, controller or policy, initialization protocol, success definition, critical thresholds, and statistical method before independent real-system testing. Report success rate together with force peaks, errors, timing, maintained states, and failure modes. Record which acceptance constraints passed and the applicable conditions. State the task-success evidence and physical-parameter evidence separately.
 
 Use independent real-system episodes as the statistical unit. Report successes, total trials, conditions, and interval method. Frames, control steps, and simulation replays belong to their originating episodes. Fixed-sample designs can preselect Wilson or exact binomial intervals and a confidence level. If stopping depends on observed results, use an appropriate sequential design, because repeatedly inspecting a fixed-sample interval changes its interpretation. [R14]
 
 Handle correlation between objects, batches, or consecutive trials through experimental grouping, stratified reporting, or suitable statistical methods. Preserve failed acceptance results and return to experimental, model, numerical, or transfer design as supported by evidence. Arrange new independent acceptance tests for revisions informed by those results.
 
-The stage delivers real-system results for a frozen version, statistical intervals, constraint compliance, failure categories, and an explicit applicability domain.
-
 ### Stage 11 Versioned release and maintenance
 
-A release should let another user reconstruct the problem and interpret the conclusion. Preserve model and solver versions, numerical settings, parameters and Registry, data and processing versions, scoring and thresholds, search records, post-freeze validation, applicability, and unresolved issues.
+A release should let another user reconstruct the problem and interpret the conclusion. Preserve model and solver versions and their dependencies, numerical settings, parameters and Registry, data and processing versions, scoring and thresholds, search records, post-freeze validation, applicability, and unresolved issues.
 
 The model card should state what evidence supports each of the three goals and which goals remain incomplete. Software status `accepted` covers the configured checks, data, and thresholds. Record the scope of fixed-configuration repeatability or pending real-system testing explicitly.
 
 Recalibration triggers can include geometry or sensor changes, maintenance and wear, controller updates, loads/rates/temperatures outside the supported domain, solver or discretization changes, and persistent excessive residuals. Retain previous results and identify new evidence and validation conditions for each update.
 
-The stage delivers a reproducible parameter package, model card, version dependencies, and maintenance triggers.
-
 ## 3 Connecting a problem to Newton Calibration
 
-The eleven stages describe the full calibration project. The software receives a defined problem and performs data checks, analysis, search, retesting, and recording. Real measurements, model selection, statistical inference, and real-system acceptance require their respective surrounding workflows. [User guide](user-guide.md)
+Once you have defined the problem, Newton Calibration checks the data, runs analysis and search, retests the candidate, and records the results. Arrange real measurements, model selection, statistical inference, and real-system acceptance in the surrounding workflow. [User guide](user-guide.md)
 
 ### 3.1 Run a complete minimal example
 
@@ -347,7 +333,7 @@ Use Python 3.11 or newer and install from the repository root. The core uses Num
 python -m pip install -e ".[cma]"
 ```
 
-The built-in oscillator factory demonstrates the full lifecycle and result access.
+Run the built-in oscillator to try the lifecycle and read its results.
 
 ```python
 from newton_calibration.examples import make_tuning
@@ -369,58 +355,58 @@ print(result.asset_path)
 
 The factory constructs the members. `run()` starts simulation and optimization and executes the lifecycle. Create a fresh `Tuning` instance for each run and call `run()` directly, since `prepare()` itself begins the lifecycle. [User guide](user-guide.md)
 
-This synthetic example demonstrates software usage. Real-object calibration requires measured evidence and an adapter implementing the contracts below.
+For a real object, supply measured evidence and an adapter that implements the contracts below.
 
 ### 3.2 Mapping the problem definition to software members
 
-The user expresses the task, model, parameters, and experimental data through software members. `Tuning` organizes numerical checks, analysis, search, validation, and recording.
+Define the task, model, parameters, and experimental data through the members below. `Tuning` runs numerical checks, analysis, search, and validation, and records the results.
 
-Members and engineering stages have a many-to-many relationship. One member can support several stages, and a stage usually involves several members. The table describes the work each member supports within a stage.
+A member can support several engineering stages, and a stage usually needs several members.
 
 #### Members and the eleven stages
 
 | Problem definition | Member or organizer | Related stages | What to supply or check |
 |---|---|---|---|
-| Observations and data split | `Evidence`, `Experiment` | Primarily **4 measurement/data design** and **8 independent prediction**, supporting evidence registration in 3 | References, times, scales, masks, weights, simulation repeats, acquisition groups, training and validation datasets |
-| Search parameters | `Parameter`, `Parameters` | Primarily **3 registration** and **7 estimation**, supporting analysis in 6 | Names, units, bounds, baselines, linear/log transforms, analyzed combinations, and a separately maintained full Registry |
-| Assets and bindings | `Asset`, `Environment` | Implements **2 model definition**, simulates for **5–8**, exports for **11** | Model construction, parameter application/readback, initial/internal state, outputs, export/reload |
-| Fixed problem configuration | `Template` | Primarily **2 model definition**, **4 experimental conditions**, **5 numerical qualification** | Fixed physical quantities, numerics, discretization, per-experiment inputs/boundaries/seeds, qualification mode, refinements, tolerance |
-| Execution and scoring | `Rollout`, `Evaluator` | Primarily **7 estimation**, reused in **5 numerics**, **6 identifiability**, **8 prediction** | Independent or batched execution, validity, objectives, metrics, constraints, residual features, user-defined QOIs and scoring |
-| Search and stopping | `Optimizer`, `Decision` | Primarily **7 estimation**, with lifecycle-wide budgeting | Candidate proposals/feedback, budgets, continue/stop decisions, built-in `GridSearch` and `CMAES` |
-| Post-freeze checks | `Validator` | Primarily **8 independent prediction**, plus training retest | Reloaded-candidate training retest, validation scores and thresholds, declared data and scope |
-| Presentation | `Play` | Diagnostics and **11 result presentation** | Comparison and export of saved trajectories |
-| Shared lifecycle | `Tuning` | Implemented work in **5–8**, archiving and conditional release in **11**, checking/freezing inputs from **2–4** | Numerical qualification, local sensitivity/SVD, search, export/reload, retest, validation, state, results, accepted release packages |
+| Observations and data split | `Evidence`, `Experiment` | Primarily 4 measurement/data design and 8 independent prediction, supporting evidence registration in 3 | References, times, scales, masks, weights, simulation repeats, acquisition groups, training and validation datasets |
+| Search parameters | `Parameter`, `Parameters` | Primarily 3 registration and 7 estimation, supporting analysis in 6 | Names, units, bounds, baselines, linear/log transforms, analyzed combinations, and a separately maintained full Registry |
+| Assets and bindings | `Asset`, `Environment` | Implements 2 model definition, simulates for 5-8, exports for 11 | Model construction, parameter application/readback, initial/internal state, outputs, export/reload |
+| Fixed problem configuration | `Template` | Primarily 2 model definition, 4 experimental conditions, 5 numerical qualification | Fixed physical quantities, numerics, discretization, per-experiment inputs/boundaries/seeds, qualification mode, refinements, tolerance |
+| Execution and scoring | `Rollout`, `Evaluator` | Primarily 7 estimation, reused in 5 numerics, 6 identifiability, 8 prediction | Independent or batched execution, validity, objectives, metrics, constraints, residual features, user-defined QOIs and scoring |
+| Search and stopping | `Optimizer`, `Decision` | Primarily 7 estimation, with lifecycle-wide budgeting | Candidate proposals/feedback, budgets, continue/stop decisions, built-in `GridSearch` and `CMAES` |
+| Post-freeze checks | `Validator` | Primarily 8 independent prediction, plus training retest | Reloaded-candidate training retest, validation scores and thresholds, declared data and scope |
+| Presentation | `Play` | Diagnostics and 11 result presentation | Comparison and export of saved trajectories |
+| Shared lifecycle | `Tuning` | Implemented work in 5-8, archiving and conditional release in 11, checking/freezing inputs from 2-4 | Numerical qualification, local sensitivity/SVD, search, export/reload, retest, validation, state, results, accepted release packages |
 
-`Tuning` is assembled from ten members named `evidence`, `asset`, `evaluator`, `parameters`, `rollout`, `optimizer`, `decision`, `validator`, `template`, and `play`. As their organizer, it owns `RunState` and produces `TuningResult`. Numerical qualification and local identifiability analysis are included in the shared lifecycle. Sections 3.4–3.6 describe their execution scope.
+Assemble `Tuning` from ten members named `evidence`, `asset`, `evaluator`, `parameters`, `rollout`, `optimizer`, `decision`, `validator`, `template`, and `play`. It owns `RunState` and produces `TuningResult`, with numerical qualification and local identifiability analysis built into the lifecycle. Sections 3.4-3.6 describe the scope of those checks.
 
 #### Current boundaries and additional work
 
-The module accepts, executes, and records a particular calibration problem. Users and external tools supply task requirements, physical evidence, and the following additional analysis and decisions.
+Users and external tools supply task requirements and physical evidence, and carry out analysis beyond the module's scope.
 
 | Work or boundary | Stages | Current support and additional work |
 |---|---|---|
-| Task definition and model selection | **1–2** | Define task, QOIs, error budget, acceptance criteria, applicability, and constitutive/contact/actuation/observation models. Connect them through `Asset`, `Template`, `Evaluator`, and other members |
-| Complete parameter and evidence registration | **3** | Bounds, baselines, and transforms are represented. Maintain physical definitions, measurement sources, dependencies, applicability, and the full Prior Envelope separately |
-| Measurement and evidence-use management | **4, 8** | Observation containers and acquisition-group checks are provided. Sensor calibration, synchronization, real repeats, raw-data processing, and fitting/development/sealed-data management remain external. Independence requires acquisition evidence beyond group labels |
-| Numerical verification beyond current coverage | **5, 8** | Initial and final core checks use training experiments. Choose meaningful refinements and tolerances, then add checks for claimed new loads, boundaries, or contacts |
-| Global identifiability and active experiment design | **6** | Finite-difference sensitivity and local SVD are provided. Global uniqueness, prior dependence, additional excitation/observations, physical acquisition, and statistical intervals need further work |
-| Task-specific scoring, other estimators, uncertainty | **7–8** | Default scoring, black-box search, and frozen-response validation are provided. Extend members or external workflows for special losses/constraints, other estimators, intervals/posteriors, and model revision |
-| Transfer strategy and real-task acceptance | **9–10** | Domain randomization, policy training, adaptation, residual compensation, frozen real-task tests, and their statistics are external |
-| Long-term release and maintenance | **11** | Run records, result files, and conditional release packages are provided. Complete model cards, long-term data/dependency management, deployment monitoring, and recalibration triggers belong to the engineering workflow |
+| Task definition and model selection | 1-2 | Define task, QOIs, error budget, acceptance criteria, applicability, and constitutive/contact/actuation/observation models. Connect them through `Asset`, `Template`, `Evaluator`, and other members |
+| Complete parameter and evidence registration | 3 | Bounds, baselines, and transforms are represented. Maintain physical definitions, measurement sources, dependencies, applicability, and the full Prior Envelope separately |
+| Measurement and evidence-use management | 4, 8 | Observation containers and acquisition-group checks are provided. Sensor calibration, synchronization, real repeats, raw-data processing, and fitting/development/sealed-data management remain external. Independence requires acquisition evidence beyond group labels |
+| Numerical verification beyond current coverage | 5, 8 | Initial and final core checks use training experiments. Choose meaningful refinements and tolerances, then add checks for claimed new loads, boundaries, or contacts |
+| Global identifiability and active experiment design | 6 | Finite-difference sensitivity and local SVD are provided. Global uniqueness, prior dependence, additional excitation/observations, physical acquisition, and statistical intervals need further work |
+| Task-specific scoring, other estimators, uncertainty | 7-8 | Default scoring, black-box search, and frozen-response validation are provided. Extend members or external workflows for special losses/constraints, other estimators, intervals/posteriors, and model revision |
+| Transfer strategy and real-task acceptance | 9-10 | Domain randomization, policy training, adaptation, residual compensation, frozen real-task tests, and their statistics are external |
+| Long-term release and maintenance | 11 | Run records, result files, and conditional release packages are provided. Complete model cards, long-term data/dependency management, deployment monitoring, and recalibration triggers belong to the engineering workflow |
 
 #### Design choices and example integration
 
-The core prioritizes essential, reusable work with stable interfaces and independently checkable behavior. This includes problem freezing, binding checks, numerical qualification, local identifiability, candidate search/scoring, export/reload, retesting, validation, and recording.
+The core handles work shared by calibration problems through stable interfaces that can be checked independently. This includes problem freezing, binding checks, numerical qualification, local identifiability, candidate search/scoring, export/reload, retesting, validation, and recording.
 
-Model selection, experiments, task evaluation, and transfer strategy also determine calibration quality. Their implementation depends heavily on the object, sensors, control mode, and application. Composable members provide extension points for adapters and analysis connected to external experimental or control tools. New evidence can then motivate another calibration iteration with revised models or experiments.
+Model selection, experiments, task evaluation, and transfer strategy depend on the object, sensors, control mode, and application. Implement adapters and analysis through the members, connecting them to experimental or control tools as needed. Revise the model or experiments and run another calibration when new evidence calls for it.
 
-The bundled cable example demonstrates this division of work through static and dynamic measurements, a material model, clamp boundaries, parameters, and validation conditions. It uses Newton Calibration for numerical checks, analysis, search, and response validation, then uses residual evidence to motivate further measurement or model revision. [Cable walkthrough](../examples/cable_calibration/README.md) · [Cable factory](../examples/cable_calibration/run.py)
+The cable example combines static and dynamic measurements with a material model, clamp boundaries, parameters, and validation conditions. Newton Calibration runs the numerical checks, analysis, search, and response validation. Residuals guide the next measurement or model revision. [Cable walkthrough](../examples/cable_calibration/README.md) · [Cable factory](../examples/cable_calibration/run.py)
 
 ### 3.3 Module usage reference
 
-Each entry describes responsibilities, constructor arguments, invocation, and results. The organization follows the overview, capability, and interface style of Newton's solver documentation. [R10]
+For background on solver capabilities and interfaces, see Newton's solver reference. [R10]
 
-The interfaces and defaults below describe Newton Calibration 0.2.0. Import core classes through `newton_calibration` and synthetic examples through `newton_calibration.examples`. Section 3.3.12 provides a complete assembled example. [Public API](../newton_calibration/__init__.py) · [Synthetic example exports](../newton_calibration/examples.py)
+These interfaces and defaults apply to Newton Calibration 0.2.0. Import core classes through `newton_calibration` and synthetic examples through `newton_calibration.examples`. Section 3.3.12 assembles a complete example. [Public API](../newton_calibration/__init__.py) · [Synthetic example exports](../newton_calibration/examples.py)
 
 ```mermaid
 flowchart LR
@@ -439,7 +425,7 @@ flowchart LR
 
 #### 3.3.1 Evidence and Experiment store observations
 
-`Experiment` describes the reference outputs and scoring conditions of one experiment. `Evidence` groups experiments into training and validation data and records provenance. Put control commands, loads, and initial states in `Template.experiment_settings` under the same experiment ID, so the environment can run the forward problem.
+`Experiment` holds one experiment's reference outputs and scoring conditions. `Evidence` groups experiments into training and validation data and records their sources. Put control commands, loads, and initial states in `Template.experiment_settings` under the same experiment ID. The environment uses those settings to run the forward problem.
 
 ```text
 Experiment(id, group, reference, times=None, scale=1.0,
@@ -467,7 +453,7 @@ Robot channels might be `[q_1, …, q_n, qd_1, …, qd_n]` with separate positio
 
 #### 3.3.2 Parameter and Parameters define the search space
 
-`Parameter` defines one scalar to estimate. `Parameters` orders the parameter vector and converts among physical values, normalized values, and combination search coordinates. `Asset` applies values to the actual solver.
+`Parameter` defines one scalar to estimate. `Parameters` keeps the vector in the supplied order and converts between physical values, normalized values, and search coordinates for parameter combinations. `Asset` applies the values to the solver.
 
 ```text
 Parameter(name, bounds, baseline, unit="1", transform="linear")
@@ -498,7 +484,7 @@ The initial mapping normalizes each parameter independently. After identifiabili
 
 #### 3.3.3 Template fixes a run's configuration
 
-`Template` stores physical conditions, numerical settings, and experiment inputs shared across candidates. It combines fixed and candidate parameters when constructing an environment, then passes the relevant experimental settings to the asset adapter. The adapter defines the dictionary keys and must consume them consistently.
+`Template` stores the physical conditions, numerical settings, and experiment inputs shared by all candidates. When constructing an environment, it merges fixed and candidate parameters and passes the experiment's settings to the asset adapter. The adapter defines and interprets the dictionary keys.
 
 ```text
 Template(*, numeric_settings, discretization, fixed_parameters,
@@ -522,7 +508,7 @@ The sliding example uses `numeric_settings={"dt": 0.02, "integrator": "event_tra
 
 #### 3.3.4 Asset, Environment, and Trace connect the simulator
 
-`Asset` encapsulates construction information, baseline parameters, and binding logic. `Environment` owns mutable simulation state for one candidate and experiment, then returns a `Trace`. Implement model construction, parameter application, initial-state reset, and observation readout here when adding a robot or material model.
+`Asset` holds construction information, baseline parameters, and parameter-binding logic. `Environment` owns the mutable simulation state for one candidate and experiment and returns a `Trace`. When adding a robot or material model, implement model construction, parameter application, initial-state reset, and observation readout in these classes.
 
 ```text
 Asset(baseline_parameters, *, config=None)
@@ -532,8 +518,6 @@ Trace(times, values, positions=None)
 ```
 
 `Asset` and `Environment` are abstract base classes. Use existing subclasses or implement their abstract methods above. The asset's `baseline_parameters` must exactly match `parameters.as_dict(parameters.baseline)`. Fixed physical values belong to the template. `config` stores construction information such as asset locations and model options, and is retained by default JSON export.
-
-Environment construction and execution follow these steps.
 
 1. `create_environment()` receives merged fixed and candidate parameters, constructs an independent model, solver, and state, and applies experiment boundaries and initial conditions.
 2. `applied_parameters` reports the effective values, read back from fields actually used in computation. Its key set must exactly match the combined fixed and search parameter keys.
@@ -548,7 +532,7 @@ The returned `Trace` uses the following layout.
 | `values` | `[T,D]` | Same channel order, units, and frame semantics as reference observations, finite wherever the mask selects data |
 | `positions` | `None` or `[T,N,3]` | Optional display points. Default USDA output uses meters and Z-up |
 
-Raise `SimulationError` for expected physical or numerical candidate failures, and `TimeoutError` for deadlines. Other exceptions are recorded as execution errors and enter the shared lifecycle's failure handling. Include enough context to locate the model, input, or numerical issue.
+Raise `SimulationError` for expected physical or numerical candidate failures and `TimeoutError` for deadlines. The lifecycle records other exceptions as execution errors and handles the failure. Include enough context to locate the model, input, or numerical issue.
 
 Assets also provide `load_or_create()`, `snapshot()`, `asset_id`, `export(parameter_values, path)`, and `reload(path)`. Default export writes `newton-calibration-asset/1` JSON with the asset type, candidate parameters, and construction configuration. Calling `reload(path)` on the original asset returns an instance of the same type with the candidate baseline. Its `create_environment()` must still construct fresh mutable state. Subclasses that cache mutable models must handle rebuilding and isolation.
 
@@ -556,7 +540,7 @@ Assets also provide `load_or_create()`, `snapshot()`, `asset_id`, `export(parame
 
 #### 3.3.5 BatchEnvironment, Rollout, and Episode execute candidates
 
-`Rollout` combines candidates and experiments, checks readback, executes environments, and collects results. One candidate in one experiment and repeat produces an `Episode`, uniquely identified by `(trial_id, experiment_id, repeat)`.
+`Rollout` runs the candidate/experiment combinations, checks parameter readback, and collects results. Each candidate, experiment, and repeat produces an `Episode`, identified by `(trial_id, experiment_id, repeat)`.
 
 ```text
 Rollout(capacity=1, *, worlds=None,
@@ -583,13 +567,13 @@ For direct `execute_batch()` calls, supply `trials` as `(trial_id, physical_para
 
 Overriding `Asset.create_batch_environment(template, parameter_values, experiment_settings)` makes `asset.supports_batch` true and selects the batch path. `parameter_values` is a sequence of complete parameter dictionaries. Both `BatchEnvironment.applied_parameters` and `run(times, seed=..., deadline=...)` results preserve candidate order.
 
-Each successful batch member returns a `Trace`. A physical failure returns a `SimulationError` instance in that member's slot. An exception at batch-call level affects the entire current chunk. A fresh batch environment is constructed for each experiment and repeat. `worlds` controls chunking, and NumPy, Warp, or another backend implements within-chunk parallelism. The ordinary path uses `capacity` threads. `BatchedOscillatorAsset` demonstrates array-based batch execution. [Synthetic example exports](../newton_calibration/examples.py)
+Each successful batch member returns a `Trace`. For a physical failure, return a `SimulationError` instance in that member's slot. Raising an exception from the batch call affects the entire current chunk. Each experiment and repeat gets a fresh batch environment. `worlds` controls chunking. NumPy, Warp, or another backend implements parallelism within each chunk. The ordinary path uses `capacity` threads. See `BatchedOscillatorAsset` for array-based batch execution. [Synthetic example exports](../newton_calibration/examples.py)
 
 For example, 8 candidates, 2 training experiments, and `repeats=3` produce 48 episodes. The rollout budget counts all 48 even when the backend simulates candidates together.
 
 #### 3.3.6 Evaluator converts trajectories into objectives and constraints
 
-`Evaluator` matches a complete episode set to reference data by experiment, candidate, and repeat, then produces per-candidate objectives, metrics, constraints, and residual features. Objectives rank candidates, constraints define feasibility, and features support sensitivity and numerical qualification.
+`Evaluator` matches the complete set of episodes to reference data by experiment, candidate, and repeat. It returns an objective, metrics, constraints, and residual features for each candidate. The objective ranks candidates, constraints determine feasibility, and features support sensitivity and numerical qualification.
 
 ```text
 Evaluator(*, loss="squared_error", max_normalized_error=None)
@@ -620,7 +604,7 @@ For positions in meters, `scale=0.03` and `max_normalized_error=2.0` impose an a
 
 #### 3.3.7 Optimizer, GridSearch, and CMAES propose candidates
 
-`Optimizer` defines an ask/tell protocol. After parameter analysis, `Tuning` calls `initialize(parameters)`. Once a batch is authorized, it calls `ask(batch_size)`, then supplies scores through `tell(result)`. Feedback for the pending batch must arrive before another batch is requested.
+`Optimizer` uses an ask/tell protocol. After parameter analysis, `Tuning` calls `initialize(parameters)`. Once the budget allows a batch, it calls `ask(batch_size)` and returns scores through `tell(result)`. The optimizer must receive feedback for the pending batch before proposing another.
 
 ```text
 Optimizer(batch_size=8, seed=42)
@@ -636,7 +620,7 @@ CMAES(batch_size=8, sigma=0.2, seed=42)
 | `CMAES.sigma` | Initial step size in the current normalized search coordinates, with `0 < sigma < 1` |
 | `CMAES.seed` | Sampling seed, default 42, configured separately from experimental simulation seeds |
 
-`GridSearch` suits a few parameters and range-response checks. Its grid is generated in current search coordinates and mapped to physical values with `Parameters.decode()`. `CMAES` requires the `cma` extra and at least two search dimensions. With rank reduction, select an optimizer appropriate for the reduced `parameters.dimension`.
+Use `GridSearch` to explore a few parameters and inspect responses across their ranges. It generates a grid in the current search coordinates and maps it to physical values with `Parameters.decode()`. `CMAES` requires the `cma` extra and at least two search dimensions. If rank reduction is enabled, choose the optimizer for the reduced `parameters.dimension`.
 
 `ask()` returns `TrialBatch(trial_ids, search_values)` with `[B,Q]` values in `[0,1]`, where `Q` is search dimension. `tell()` receives the corresponding `BatchResult`, whose candidate IDs, search values, and `purpose="train"` must match.
 
@@ -646,7 +630,7 @@ To implement another algorithm, subclass `Optimizer` and implement `ask()`. Exte
 
 #### 3.3.8 Decision controls budgets and stopping
 
-Before baseline, analysis, training, and validation work, `Decision` checks state and budgets and returns `DecisionResult(action, reason, batch_size=0)`. `Tuning` uses it to authorize work or enter finalization.
+Before baseline, analysis, training, and validation work, `Decision` checks state and budgets and returns `DecisionResult(action, reason, batch_size=0)`. `Tuning` uses that decision to start the work or finish the run.
 
 ```text
 Decision(max_trials=512, max_rollouts=10000, max_generations=100,
@@ -670,7 +654,7 @@ For example, `Decision(max_trials=41, max_generations=3, max_rollouts=200)` acco
 
 #### 3.3.9 Validator checks the exported candidate
 
-`Validator` performs per-experiment acceptance. `Tuning` exports and reloads the selected asset, then uses training experiments for retesting and validation experiments for holdout evaluation. Both use `validate()` and retain separate reports.
+`Validator` checks acceptance for each experiment. `Tuning` exports and reloads the selected asset, then retests it on training experiments and evaluates it on held-out validation experiments. Both checks call `validate()` and produce separate reports.
 
 ```text
 Validator(max_objective=0.01, max_error=1.0)
@@ -685,7 +669,7 @@ Validator.validate(candidate_asset, validation_data, evaluate)
 | `accepts(result)` | True when every candidate is feasible and within objective and maximum-error limits |
 | `validate(...)` | Call `evaluate(candidate_asset, (experiment,))` for each experiment and return a dictionary with `passed`, `status`, and `experiments` |
 
-With default squared error, `max_objective=0.01` corresponds to normalized RMSE at most 0.1 for that evaluation. The separate maximum-error condition must also pass. Per-experiment retesting gives low-weight experiments their own acceptance check.
+With default squared error, `max_objective=0.01` requires normalized RMSE of at most 0.1 for that evaluation. The maximum-error condition must also pass. Retesting each experiment separately checks even those given low weight during search.
 
 `Tuning` supplies the `evaluate` callback, locks candidate identity, and performs budgeting, simulation, and scoring. Custom validators can add condition grouping or historical-evidence restrictions while preserving report fields and candidate identity. The default validator returns `status="unvalidated"` for empty validation data. `Tuning` organizes numerical rechecks separately and includes them in the final report.
 
@@ -712,11 +696,11 @@ if tuning.comparison and tuning.comparison["tracks"]:
     print(path)
 ```
 
-`Tuning.run()` already attempts to generate the default `comparison.usda`. The extra export above demonstrates the method call. Presentation errors are recorded in `RunState.errors`. Scoring, validation, and numerical checks determine acceptance.
+`Tuning.run()` attempts to generate `comparison.usda` automatically. The example above exports another copy. Presentation errors appear in `RunState.errors`. Scoring, validation, and numerical checks determine acceptance.
 
 #### 3.3.11 Tuning assembles members and returns results
 
-`Tuning` accepts the ten members and coordinates preparation, analysis, search, export/reload, retesting, and validation. Applications compose members and implement case adapters to use this lifecycle.
+Pass the ten members to `Tuning` to run preparation, analysis, search, export/reload, retesting, and validation. Compose members and implement case adapters for your application.
 
 ```text
 Tuning(*, evidence, asset, evaluator, parameters, rollout, optimizer,
@@ -733,7 +717,7 @@ Tuning(*, evidence, asset, evaluator, parameters, rollout, optimizer,
 | `allow_rank_reduction` | `False`, allowing search in retained identifiable combinations of nonzero rank when enabled |
 | `orthogonalize` | `True`, building search coordinates from local SVD combinations. Required for rank reduction |
 
-The normal entry point is `result = tuning.run()`. Phase operations `prepare()`, `sensitivity()`, `identifiability(report)`, and `evaluate_batch(...)` require lifecycle, freezing, and budget protocols when composed manually. `run()` organizes them using a fresh instance per run.
+Start with `result = tuning.run()`. Calling `prepare()`, `sensitivity()`, `identifiability(report)`, and `evaluate_batch(...)` manually requires following the lifecycle, freezing, and budget protocols. Let `run()` manage those steps, using a fresh instance for each run.
 
 `tuning.state` is a `RunState` containing `phase`, `identity`, `budget_usage`, `batch_history`, `best_candidate`, `analysis_reports`, `optimizer_snapshot`, `decision_history`, `validation_report`, `artifact_refs`, and errors. `state.view()` supplies a read-only decision snapshot. Inspect `run_state.json` after execution to trace these records.
 
@@ -749,7 +733,7 @@ The normal entry point is `result = tuning.run()`. Phase operations `prepare()`,
 
 #### 3.3.12 Assemble all ten members in a runnable example
 
-This single-degree-of-freedom sliding example explicitly assembles `SlidingAsset`, `GridSearch`, and the shared members. Analytical references use known friction `0.35`, two training initial speeds, and a different validation speed. It exercises API connections and result access. Supply measured data and a physical adapter for real-system identification.
+Assemble `SlidingAsset`, `GridSearch`, and the shared members to identify friction in a single-degree-of-freedom sliding model. The analytical reference uses friction `0.35`, two initial speeds for training, and a different speed for validation. This checks the API connections and result access. Use measured data and a physical adapter when identifying a real system.
 
 Run the complete code below in an environment with Newton Calibration installed. Numerical settings, scales, and thresholds are specific to this synthetic example.
 
@@ -847,35 +831,35 @@ assert abs(result.parameters["friction"] - 0.35) < 1e-8
 assert result.asset_path.is_file()
 ```
 
-The example shows the connection points for data, parameters, model adaptation, fixed settings, execution, scoring, search, budgets, validation, and presentation. Robot integration requires joint actuation, initial states, control timing, and observation channels. Cable SLS integration additionally requires material history, discretization mapping, and numerical refinement. Both enter `Tuning.run()` through the same member contracts. [Cable factory](../examples/cable_calibration/run.py)
+For a robot adapter, define joint actuation, initial states, control timing, and observation channels. A cable SLS adapter also needs material history, discretization mapping, and numerical refinement. Both use the member contracts to run through `Tuning.run()`. [Cable factory](../examples/cable_calibration/run.py)
 
 ### 3.4 Contracts to check during integration
 
-**Data semantics** include `[T,D]` reference values, `[T]` times, Boolean `[T,D]` masks, and positive broadcastable scales. `group` identifies an acquisition group. `Evidence` rejects shared labels across training and validation. Establish physical independence through acquisition records, and provide image processing, camera calibration, and data collection externally.
+Supply `[T,D]` reference values, `[T]` times, Boolean `[T,D]` masks, and positive broadcastable scales. `group` identifies an acquisition group. `Evidence` rejects shared labels across training and validation. Use acquisition records to establish independence, and provide image processing, camera calibration, and data collection externally.
 
 `Evidence` has `train_data` and `validation_data` inputs. Manage development and sealed-data uses through external registration and selections across runs. `Experiment.repeats` repeats simulation against one reference. Register independent real acquisitions separately with appropriate groups.
 
-**Parameter definitions** contain the five arguments of `Parameter(name, bounds, baseline, unit="1", transform="linear")`. Log transforms require a positive lower bound. Asset and parameter baselines must agree. Search keys and `Template.fixed_parameters` must be disjoint. Preserve provenance, dependencies, and applicability in a separate Registry or experimental specification.
+Define each parameter with the five arguments of `Parameter(name, bounds, baseline, unit="1", transform="linear")`. Log transforms require a positive lower bound. Asset and parameter baselines must agree. Search keys and `Template.fixed_parameters` must be disjoint. Preserve provenance, dependencies, and applicability in a separate Registry or experimental specification.
 
-**Simulation adaptation** implements `Asset.create_environment(template, parameter_values, experiment_settings)`. The adapter interprets `Template.experiment_settings[experiment.id]` as inputs, initial states, boundaries, and seeds. Every environment owns independent mutable state, and `Environment.applied_parameters` reads effective values from the model.
+Implement `Asset.create_environment(template, parameter_values, experiment_settings)` in the adapter. It interprets `Template.experiment_settings[experiment.id]` as inputs, initial states, boundaries, and seeds. Give each environment independent mutable state, and read effective model values through `Environment.applied_parameters`.
 
-**Outputs and failures** follow `Environment.run(times, seed=..., deadline=...)`, returning aligned `Trace` times, `[T,D]` values, and optional `[T,N,3]` display positions. Execute using the template's integration settings. Use `SimulationError` for expected candidate failures and preserve implementation errors separately. Deadline handling depends on backend cooperation, and a blocked simulation can exceed the current thread-based execution deadline.
+Return aligned `Trace` times, `[T,D]` values, and optional `[T,N,3]` display positions from `Environment.run(times, seed=..., deadline=...)`. Use the template's integration settings. Report expected candidate failures with `SimulationError` and preserve implementation errors separately. The backend must cooperate with deadline checks, and a blocked simulation can exceed the thread-based execution deadline.
 
-**Custom scoring** preserves objectives, metrics, constraints, validity masks, and residual features. Current lifecycle and validator code read `metrics[:,1]` as `max_error`. Preserve that position and meaning or adapt the relevant members together.
+Custom scoring must return objectives, metrics, constraints, validity masks, and residual features. The lifecycle and validator read `metrics[:,1]` as `max_error`. Preserve that position and meaning or adapt the relevant members together.
 
-**Parallel execution** uses independent environments and `Rollout.capacity` for ordinary assets. Backend batching requires `Asset.create_batch_environment`, candidate ordering, and per-candidate readback/result identity. GPU batching and distributed execution require supporting backend implementations. [User guide](user-guide.md)
+Ordinary assets run in independent environments with parallelism set by `Rollout.capacity`. For backend batching, implement `Asset.create_batch_environment` and preserve candidate order and per-candidate readback/result identity. GPU batching and distributed execution require backend support. [User guide](user-guide.md)
 
 ### 3.5 Lifecycle and analysis scope
 
 `run()` prepares and freezes inputs, evaluates the baseline and numerical qualification, analyzes sensitivity and identifiability, searches, exports/reloads the candidate, retests training experiments, validates, and performs final numerical checks. It then records results and creates a release package when acceptance conditions pass.
 
-**Declare the numerical qualification mode explicitly.** Default `qualification_mode="refinement"` requires at least one refinement that changes numerical or discretization settings. For deliberately fixed-configuration checks, select `qualification_mode="repeatability"` and `refinements=()`. Independent environments use the same settings and seeds, and the reported scope is `fixed_configuration_only`. Numerical convergence and cross-seed variation require additional checks.
+Choose the numerical qualification mode explicitly. The default, `qualification_mode="refinement"`, requires at least one refinement that changes numerical or discretization settings. To check repeatability at fixed settings, select `qualification_mode="repeatability"` and `refinements=()`. Independent environments use the same settings and seeds, with scope reported as `fixed_configuration_only`. Check numerical convergence and cross-seed variation separately.
 
-Initial qualification probes the baseline and normalized vectors filled with 0.25 and 0.75. The final candidate is checked again. **Both initial and final core numerical checks use training experiments.** These probes cover representative points. Additional checks are required for other parameter regions and new validation loads or contact modes within the claimed domain.
+Initial qualification probes the baseline and normalized vectors filled with 0.25 and 0.75. The lifecycle repeats numerical qualification for the final candidate. **Both initial and final core numerical checks use training experiments.** Check other parameter regions and new validation loads or contact modes separately when they fall within the claimed domain.
 
 `precision_tolerance` limits the maximum absolute change in `Evaluator.features`. Features incorporate residual scales, experiment weights, and valid sample counts. A physical tolerance such as 0.5 mm therefore requires an explicit mapping or an additional physical-unit metric.
 
-**Identifiability analysis has a local scope.** Finite differences at the same three anchors use normalized parameter coordinates. SVD acts on the combined training-feature sensitivity matrix. By default, insufficient rank yields an inconclusive result. With positive retained rank, `allow_rank_reduction=True` and `orthogonalize=True` permit search in retained local combinations, fixing omitted directions at the normalized baseline. Zero rank stops the search. Orthogonalized search coordinates describe local parameter combinations. Global physical separation and statistical intervals require further evidence.
+Identifiability analysis uses finite differences at the same three anchors in normalized parameter coordinates. It applies SVD to the combined training-feature sensitivity matrix. By default, insufficient rank yields an inconclusive result. With positive retained rank, `allow_rank_reduction=True` and `orthogonalize=True` permit search in the retained local combinations, with omitted directions fixed at the normalized baseline. Zero rank stops the search. These orthogonalized coordinates describe local parameter combinations. Global physical separation and statistical intervals require further evidence.
 
 ### 3.6 Stopping reasons, acceptance, and budgets
 
@@ -911,9 +895,9 @@ Default asset JSON stores parameters, adapter type, and construction configurati
 
 ## 4 Using residuals to plan the next iteration
 
-First classify execution errors, numerical candidate failures, budget exhaustion, training rejection, and validation failure. For completed runs with excessive error, inspect residuals by experiment, channel, and phase to locate steady-state, reversal, contact, peak, or post-release problems.
+Identify how the run ended before changing the calibration. Check for execution errors, numerical candidate failures, exhausted budgets, training rejection, or validation failure. If the run completed with excessive error, inspect residuals by experiment, channel, and phase. Locate the problem in steady-state behavior, reversals, contact, peaks, or post-release motion.
 
-Start with low-cost checks that have direct interpretations. Inspect binding/readback, data and input semantics, numerical accuracy, bounds and budget, then unexplained model assumptions. Adjust this order according to evidence. Direct mass or boundary measurements can proceed alongside other checks.
+Start with parameter binding and readback, then check data and input semantics, numerical accuracy, bounds, and budget. These checks are usually inexpensive and help isolate the cause before revising model assumptions. Adjust the order when the evidence points elsewhere. Measure mass or boundary conditions alongside other checks where useful.
 
 | Main symptom | Check first | Return to |
 |---|---|---|
@@ -927,7 +911,7 @@ Start with low-cost checks that have direct interpretations. Inspect binding/rea
 | Training passes but new conditions fail | Data coverage, model transfer, coupling, numerics under new conditions | 8 independent prediction, then 2, 4, 5, or 6 according to cause |
 | Predictions are adequate but real tasks fail | Policy coverage, observations, delays, control interface, task metrics | 9 transfer strategy, with model revision if needed |
 
-Increase search budget when candidates continue improving and the available budget is clearly insufficient. Missing experimental information requires new evidence. Change solver for a specific physical capability or accuracy requirement and compare on a shared benchmark. Turn persistent structured residuals into testable hypotheses, such as hold/cycle experiments for material relaxation or independent geometry/force measurements for contact and boundary compensation.
+Increase the search budget if candidates are still improving and the current budget is insufficient. Collect new evidence when the experiments leave parameters unresolved. A solver change should address a specific physical capability or accuracy requirement, with both solvers compared on the same benchmark. For persistent structured residuals, test a concrete hypothesis. Hold/cycle experiments can test material relaxation, while independent geometry or force measurements can help separate contact effects from boundary compensation.
 
 ## References
 
@@ -947,8 +931,6 @@ Increase search budget when candidates continue improving and the available budg
 - **R14** NIST/SEMATECH *e-Handbook of Statistical Methods*, Section 7.2.4.1. Binomial-proportion intervals. [Confidence intervals][R14]
 - **R15** Antonova et al., 2023. Combining global and local methods for difficult simulation objectives. [Rethinking Optimization with Differentiable Simulation from a Global Perspective][R15]
 - **R16** *DiffTactile*, ICLR 2024. Multiple contact observations and differentiable calibration. [DiffTactile project and paper][R16]
-
-Repository usage and example references are available alongside this guide.
 
 - [Installation, API entry points, budgets, and outputs](user-guide.md)
 - [Public core exports](../newton_calibration/__init__.py)
