@@ -18,7 +18,7 @@ Start with [Section 3](#3-connecting-a-problem-to-newton-calibration) if you alr
 | Credible simulation predictions | The model predicts real responses under conditions withheld from fitting |
 | Effective task transfer | Control trained or planned with the model accomplishes the task on the real system |
 
-State which goal the calibration serves and which conclusions still need validation. Evidence for these goals can reinforce one another. Compensating parameters can produce similar trajectories, and a biased model can predict accurately within a restricted range. Robust control may also tolerate substantial parameter error. Assess reliability using evidence about model assumptions, numerical error, and uncertainty. [R1] [R6]
+State which goal the calibration serves and which conclusions still need validation. Evidence for one goal does not establish the others. Parameters whose errors compensate for each other can still reproduce the measured trajectories, so a good fit does not show that the parameters are physically right. A biased model can predict accurately, but only within a restricted range. Robust control can succeed on the real task despite substantial parameter error. Judge each conclusion by its evidence about model assumptions, numerical error, and uncertainty. [R1] [R6]
 
 A calibration should provide evidence for its parameters and response predictions under a stated model, numerical configuration, dataset, and domain of applicability. Report the uncertainty that remains. To claim sim-to-real transfer, also test the task on the real system after freezing the model and strategy.
 
@@ -50,9 +50,9 @@ Black-box refers to how the optimizer uses the simulator. It proposes parameters
 
 CMA-ES, the cross-entropy method (CEM), parallel sampling, and Bayesian optimization can solve this kind of problem. Evaluating candidates in parallel can reduce wall-clock time, depending on backend batching, resource use, and the cost of each simulation.
 
-The built-in optimizers are `GridSearch` and `CMAES`. CEM, Bayesian optimization, differentiable optimization, and Bayesian posterior inference require additional members or external workflows. Use external systems for automated physical experiment design, policy training, domain-randomization training, and online adaptation. [User guide](user-guide.md)
+The built-in optimizers are `GridSearch` and `CMAES`. CEM, Bayesian optimization, differentiable optimization, and Bayesian posterior inference require additional members or external workflows. Use external systems for automated physical experiment design, policy training, domain-randomization training, and online adaptation. The [user guide](user-guide.md#1-install) lists the extra each optimizer needs.
 
-The module freezes the problem definition, checks parameter bindings and numerical settings, and analyzes local sensitivity and identifiability. It then evaluates candidates within a budget and exports, reloads, retests, and validates the selected candidate. Measurement, model selection, and real-system experiments are part of the wider engineering workflow.
+The module freezes the problem definition, checks parameter bindings and numerical settings, and analyzes local sensitivity and identifiability. It then evaluates candidates within a budget and exports, reloads, retests, and validates the selected candidate. Measurement, model selection, and real-system experiments stay outside the module, in the wider engineering workflow.
 
 ## 2 Workflow and stage deliverables
 
@@ -93,9 +93,15 @@ flowchart TD
     F -->|Yes, predictive model only| I
 ```
 
+### Running example: cable insertion with a robot and dexterous hand
+
+The stage examples below follow one task. A robot arm with a dexterous hand grasps a network cable, carries it, aligns the plug with the socket, inserts it until the latch engages, then releases the latch and pulls the plug out. The simulation must also predict the force during insertion.
+
+The task needs all three goals of Section 1.1, and evidence for one does not settle the others. The simulated robot can complete the insertion while the predicted peak insertion force is wrong, and a cable trajectory can fit well without identifying bending stiffness, clamp boundary and damping uniquely. Stages 1 and 2 treat the whole task. From Stage 3, the example follows the completed no-plug calibration in the [recorded 17 cm cable study](../examples/cable_calibration/README.md): register measured quantities, compare static and dynamic responses, investigate residuals, and qualify the fitted model under those conditions. The study provides no robot insertion or force-validation results. Its model variants A, B, B*, and C are successive calibration choices, distinct from the numbered workflow stages below.
+
 ### Stage 1 Task and domain of applicability
 
-Define the task's quantities of interest before choosing parameters to fit. In cable insertion, transport, alignment, initial contact, guided insertion, and latch engagement each place different demands on the model.
+Define the task's quantities of interest before choosing parameters to fit. In cable insertion, the transport, alignment, initial-contact, guided-insertion, and latch-engagement phases each place different demands on the model.
 
 | Object or phase | QOIs | Available observations | Relevant mechanisms |
 |---|---|---|---|
@@ -104,9 +110,32 @@ Define the task's quantities of interest before choosing parameters to fit. In c
 | Dynamic cable release | Peak/trough timing, amplitude, decay, final equilibrium | Time-varying centerline | Inertia, elasticity, dissipation, material history, release state |
 | Plug insertion and locking | Axial/lateral forces, torque, latch events | Displacement and force records, success events | Contact geometry, friction, latch and contact-component deformation |
 
-Record parameters and responses separately. Tracking lag may depend on drive gains, inertia, friction, and control delay. Tip sag may depend on stiffness, free length, mass, and clamp angle.
+List each response separately from the parameters that might explain it, since one response usually depends on several parameters. Tracking lag may depend on drive gains, inertia, friction, and control delay. Tip sag may depend on stiffness, free length, mass, and clamp angle.
 
 Define the primary objective, critical acceptance metrics, and diagnostic metrics before searching. Preserve critical peaks, event timing, and local worst-case errors alongside average error. Set thresholds using task tolerances, measurement error, and the numerical-error allowance. Retain previous definitions and reasons when revising them. The applicability domain should cover the object, speed, load, temperature or rate conditions, initial state, and contact modes.
+
+#### Cable insertion example: sub-modules and quantities of interest
+
+To align insertion force, record insertion displacement and speed, the plug's pose relative to the socket, contact and slip at the hand, and the force sensor's frame transform, offset and filtering. Compare the axial force-displacement curve, its peak and the peak's position, insertion work, and the latch engagement and release events, and keep lateral force, torque and the spread between repeated trials. Compute insertion work along the declared insertion axis over a declared interval, and state how gravity, inertial force and mounting reaction are removed from the sensor signal. Thresholds for these metrics come from task requirements, measurement error and repeatability, and are fixed before any sealed test. This example does not yet have those thresholds or independent acceptance data.
+
+| Sub-module | Effect on the task | Quantities to register or identify first | Experiments or observations |
+|---|---|---|---|
+| Robot arm and control | Wrist pose, speed, drive force and response under load | Kinematics, mass and inertia, drive gains, friction, delay, limits, and how commanded input relates to actual input | Unloaded and known-load excitation, joint commands and feedback, end-effector motion |
+| Dexterous hand and drives | Grasp stability, fingertip motion and contact force | Joint drives, friction, transmission and limits, finger-pad geometry and compliance | Free motion, known loads, constrained contact and grasp tests |
+| Cable material and rest shape | Carrying resistance, tip spring-back, reaction torque and recovery of orientation | Axial, bending and torsional response under task loads, material memory, rest curvature and linear density | Static shape, release dynamics, torque against twist angle, cross-section orientation |
+| Plug body | Inertia and local deformation | Geometry, mass, center of mass, inertia, latch and contact-spring compliance | Geometry and mass measurement, local loading, structural analysis where needed |
+| Plug and socket | Guidance, insertion resistance, latching and extraction | Contact geometry, friction, deformation of the metal contacts and the latch | Force-displacement, latch and unlatch records at several speeds and poses |
+| Plug-cable connection | Carries axial force, bending moment and torque between plug and cable | Effective joint location, translational and rotational compliance, damping, slip | Load the cable with the plug held fixed, and measure relative pose and load |
+| Hand with plug or cable | Slip, local compression, grip force and held pose | Contact material pairs, finger-pad compliance, grasp location, normal force | Pull and twist tests under a fixed grasp, with contact force and slip observation |
+| Socket mount, environment and measurement chain | The reaction boundary and the measured force and pose | Mount stiffness, sensor extrinsics, offsets, time synchronization, support contact | Rigid reference, sensor calibration, mount deformation and synchronization checks |
+
+The table organizes evidence; it does not make the sub-modules separable. One insertion-force curve depends on plug geometry, contact friction, finger-pad compliance, grip normal force, cable reaction and controller response at once, and parameters from different physical categories can still be confounded in the available observations. [R6] [R7]
+
+Fitting every parameter to complete insertion trajectories at once meets high simulation cost, weak excitation, correlated parameters and compensation: a stiffer cable and a different clamp boundary both change tip spring-back, and contact friction and grip normal force both change slip. This example therefore builds evidence for sub-modules and interfaces in controlled experiments first, then carries the results into the full task and adjusts the parameters that remain uncertain within the range that evidence supports. Controlled experiments vary loads, boundaries and inputs independently, so parameters produce more distinct responses. Each search fixes quantities that are measured or that the task is insensitive to, which concentrates the budget on a few directions. A residual that appears after integration can be traced to material, connection, contact, control or measurement instead of being absorbed by every parameter. Component parameters, with their domains, numerical settings and records, can serve other tasks or act as priors and constraints at system level.
+
+Staged estimates keep the conditions and uncertainty of the experiments behind them. When an interface cannot be isolated, design a joint experiment or keep the identifiable combination, and after system-level adjustment, rerun the component experiments to check that the adjustment did not break them. [R2] [R6]
+
+For the cable component, make the response requirements concrete before fitting. The recorded study uses static coordinate RMSE at most 3 mm and maximum coordinate error at most 9 mm; for release dynamics, the limits are 4 mm and 12 mm. It assigns 0.5 mm to numerical changes under the qualified conditions. These are the [case-specific requirements](../examples/cable_calibration/TUNING-SPEC.md#scope), not general tolerances for cable calibration or insertion force. The immediate goal is an equivalent model for a 17 cm free cable represented by 32 segments.
 
 ### Stage 2 Model definition
 
@@ -125,6 +154,20 @@ Here, $M$ is the model structure, $\nu$ the numerical configuration, $\theta$ th
 Record phenomena the model represents, intentionally omits, or cannot express. When an important mechanism is missing, parameter compensation may reduce local error while degrading other conditions. [R6]
 
 Select a solver by checking physical capabilities, parameter binding and observation interfaces, numerical accuracy, and budget. Newton's feature matrix helps shortlist candidates. Verify the actual version and backend, including whether the backend consumes each field used by the adapter. [R10]
+
+#### Cable insertion example: one model per sub-module
+
+| Sub-module | Model |
+|---|---|
+| Robot arm and dexterous hand | MuJoCo |
+| Plug | MuJoCo rigid body |
+| Plug and socket | SDF contact |
+| Cable | VBD rod |
+| Plug-cable connection | A solver coupling that exchanges forces between the MuJoCo plug and the VBD cable |
+
+Calibrate the cable in an isolated experiment before using it in the full task. The study below uses a 20 cm cable of 7 mm diameter, with a 17 cm free length from the clamp to the free cable end and no plug attached. The board is flipped to obtain left- and right-facing cantilevers while preserving the same clamp.
+
+The component model uses a 32-segment Newton VBD rod, a curved natural shape inferred from unloaded photographs, planar XZ motion, and no board contact. The task-level MuJoCo coupling above is outside this isolated cable experiment. Start with elastic bending and viscous damping. Add a shared clamp-angle correction or a rate-dependent material law only when the residuals and numerical checks support that choice. These assumptions are recorded in the [experimental specification](../examples/cable_calibration/TUNING-SPEC.md#confirmed-facts-and-assumptions).
 
 ### Stage 3 Parameter and evidence registration
 
@@ -161,6 +204,26 @@ The Prior Envelope records justified ranges and dependencies. Distinguish hard p
 
 Positive parameters spanning orders of magnitude can use logarithmic search. Handle zero-valued friction or damping separately when needed. Check actual readback, rebuilding/resetting, single-parameter perturbations, and state isolation between candidates for every search parameter. Material-memory initialization is also part of the problem definition.
 
+#### Cable example: registering measured quantities and initial assumptions
+
+Begin with the quantities that can be established without fitting a trajectory: Cable length, diameter and mass determine geometry and linear density. The unloaded photographs supply a curved natural shape; the cantilever shape under gravity is a response to predict. Keep the clamp pose visible in the registry because boundary errors can be absorbed by material parameters.
+
+| Quantity | Role in the initial fit A | Value or baseline | Search range or evidence |
+|---|---|---|---|
+| Free cable length | Fixed geometry | 0.17 m | Clamp to the free cable end |
+| Diameter | Fixed, measured | 7 mm | Asset measurement |
+| Linear density | Fixed, derived from measurements | 0.052 kg/m | 10.4 g over 0.20 m |
+| Natural shape | Fixed observation-based geometry | Nonstraight planar centerline | Unloaded rest photographs; extrapolation beyond the last observed location |
+| Bending rigidity EI | Searched, log scale | 0.00816 N m² | 0.002 to 0.012 N m² |
+| Discrete bending damping | Searched, log scale | 0.012 N m s/rad at 32 segments | 0.003 to 0.025 N m s/rad at 32 segments |
+| Clamp tangent | Initially fixed from the image geometry | Per-orientation tangent | Uncertain effective boundary; investigated after the first fit |
+
+The EI and damping baselines and bounds are initial search choices from [configuration A](../examples/cable_calibration/configs/A.json), not independently measured material constants or confidence intervals. The [asset record](../examples/cable_calibration/data/asset.md) supplies the measured dimensions and mass. Fixed axial, shear and torsional coefficients are also part of the model definition; retain their exact per-model settings in the configurations rather than treating them as identified properties.
+
+In the pinned adapter, interior joint bending stiffness is EI/h, where h is the segment length, and the clamp joint uses 2 EI/h for its half-segment span. The registered damping coefficient is the discrete value for 32 segments; a refinement maps it by (0.17/32)/h. Numerical damping used to settle a static configuration is kept separate from the physical damping fitted to the release. The [adapter](../examples/cable_calibration/backends/b/newton_backend.py) checks actual model values through parameter readback. These mappings belong to the recorded Newton version and must be checked again for another solver version.
+
+Update the registry when the model changes. In B, a shared mount-angle offset enters with bounds of −5° to +5°, with opposite signs for the two orientations. Clamp compliance is fixed to zero after a flexible-clamp model fails numerical qualification; this is a modeling restriction, not a measurement of zero compliance. In C, the fitted EI becomes the fixed long-time rigidity, the old physical bending damping is set to zero, and transient rigidity and relaxation time become the searched parameters. Stage 7 explains the evidence behind those changes.
+
 ### Stage 4 Measurement and data design
 
 Record timestamps, frames, units, sampling and filtering, commands and feedback, sensor calibration, initial and boundary conditions, processing scripts, and data versions. Repeat experiments to estimate noise and experimental variability before interpreting small improvements.
@@ -175,6 +238,21 @@ Reserve separate evidence for Stage 8 response validation and Stage 10 real-syst
 
 Save the measurement and synchronization protocols, initialization records, processing procedure, and each dataset's group and intended use.
 
+#### Cable example: turning photographs and releases into observations
+
+Use separate observations for natural geometry, equilibrium response and release motion. In this example, we use photographs of unloaded rest and left/right cantilevers, plus a left-facing release video. A visible ruler provides the image-to-length scale. Each response is sampled at 15 arc-length stations from 10 to 150 mm and stored as 30 x/z coordinate channels. The last 20 mm of the 170 mm model relies on extrapolation.
+
+| Evidence | Observation and use |
+|---|---|
+| Unloaded rest photographs | Define the natural curved geometry used to construct the model |
+| left/right cantilevers | Two static training experiments in A/B, sharing material and clamp parameters |
+| dynamic release | Dynamic training experiment; video window 7.84–8.44 s |
+| Pre-release shape history | Initialize the SLS internal state in C using the preceding 0.6 s |
+
+The release window contains 31 frames at 0.02 s intervals. Initialize from the observed release state and estimated initial motion, then simulate freely. Mask the first three frames from scoring to reduce the effect of uncertain release timing and initial velocity, leaving 28 scored frames. The 50 Hz observation rate is distinct from the integration steps in Stage 5. B* and C use only the release states for fitting, with the static estimates frozen.
+
+Keep the limits of this measurement chain explicit. Video presentation timestamps support the sample spacing, but recording speed was not independently verified. Ruler scaling does not provide a full camera calibration, and repeated-acquisition uncertainty was not established. The processed observations are reproducible inputs to scoring; the complete raw videos and extraction scripts are not bundled. [Processed experiments](../examples/cable_calibration/data/experiments.json) · [Observation details](../examples/cable_calibration/README.md#2-experiment-and-observation-pipeline)
+
 ### Stage 5 Numerical qualification
 
 Assess whether simulation is sufficiently stable under numerical changes before interpreting fitting residuals. Check time integration, substeps, iterations, tolerances, spatial discretization, precision, and solver coupling wherever they affect QOIs. Use representative parameters and high-risk conditions, and repeat checks for the final candidate. [R1]
@@ -187,9 +265,25 @@ For effective parameters tied to a particular discretization, you may use spatia
 
 Freeze the chosen configuration and record its accuracy or repeatability mode, checked conditions and boundaries, and numerical errors. Reassess qualification when the model, parameter range, or deployment configuration changes.
 
+#### Cable example: qualifying the configuration used to interpret residuals
+
+Before asking an optimizer to explain a trajectory, check whether numerical choices change that trajectory enough to affect the conclusion. In this case, the initial axial/shear settings of 3e7 did not converge for the cantilever. Later configurations use 1e5/1e4 after separate benchmark checks. A four-parameter model with a flexible clamp also failed time/space qualification within its budget; the subsequent search uses a rigid clamp. Neither change establishes the real cable's axial/shear properties or the real clamp's rigidity.
+
+The B/B*/C configuration uses 32 segments and float32 VBD simulation: static integration at 1/960 s with 320 iterations, and dynamic integration at 1/1920 s with 160 iterations. Numerical settling damping is applied only to static calculations. The recorded solver is Newton 1.6.0.dev0 at commit `d37f4d3d341ccce1e06a1dff21e9a054759b4855`; C adds the bundled SLS patch. Simulation used Warp 1.17.0 on an NVIDIA RTX 5070 Ti Laptop GPU. These settings describe this case, not defaults for a new cable. [Configurations](../examples/cable_calibration/configs/) · [Solver and runtime requirements](../examples/cable_calibration/README.md#5-construct-or-rerun-a-stage-with-newton)
+
+Recheck the selected candidate as well as the starting configuration. For C's dynamic prediction, the recorded maximum changes are:
+
+| Check | Maximum coordinate change | Interpretation |
+|---|---:|---|
+| Halve the integration step | 0.179 mm | Below the 0.5 mm numerical allowance |
+| Double solver iterations | 0.003 mm | Below the same allowance |
+| Refine from 32 to 64 segments with iteration checks | 0.229 mm | Spatial diagnostic under the declared 32-segment interpretation |
+
+The delivered interpretation is equivalent parameters for the 32-segment model under the no-plug conditions. The spatial diagnostic alone does not establish transferable continuum material properties. Retain this numerical configuration with the fitted parameters and requalify it when the experimental conditions change. [Numerical scope](../examples/cable_calibration/README.md#4-numerical-accuracy-and-remaining-limits) · [Candidate diagnostics](../examples/cable_calibration/archive/C-final-diagnostics.json)
+
 ### Stage 6 Identifiability and experiment design
 
-Ask whether different parameters produce distinguishable responses under the current model, experiments, and observation precision. This is identifiability. Also assess task sensitivity, or how parameter changes affect the task's QOIs.
+Identifiability is whether different parameters produce distinguishable responses under the current model, experiments, and observation precision. Task sensitivity is how parameter changes affect the task's QOIs. Assess both.
 
 #### Use two dimensions to set priorities
 
@@ -197,7 +291,7 @@ Ask whether different parameters produce distinguishable responses under the cur
 |---|---|---|
 | High | High | Prioritize measurement and calibration |
 | High | Low | Improve experiments, add observations, or retain correlated parameter sets |
-| Low | High | Record through low-cost measurement and reduce optimization effort |
+| Low | High | Measure cheaply or take from existing records, and spend little search effort |
 | Low | Low | Simplify, fix using documented prior information, or retain uncertainty |
 
 Start with single-parameter perturbations. Check reproducibility, compare response changes with measurement noise and numerical error, and examine whether different parameters cause similar changes. With explicit scaling, singular values and correlated parameter directions characterize local information. Stronger conclusions may require profile likelihood, repeated experiments, or posterior analysis. [R11]
@@ -220,6 +314,16 @@ Low-cost experiments with relatively isolated mechanisms can constrain parameter
 
 Record which parameters or combinations are identifiable, why other quantities are temporarily fixed, and which experiments or observations to add first.
 
+#### Cable example: separating material, boundary and dynamic explanations
+
+Use the left/right cantilevers to ask whether one material model explains both orientations under a shared boundary. In A, improving the left static shape worsens the right one. Since the same clamp is preserved when the board is flipped, investigate one shared angle correction before assigning different material properties to each orientation. This is a hypothesis about the boundary, not proof that the angle caused the whole discrepancy. A and B also differ in numerical settings and search history; setting the angle to zero at B's other fitted values worsens the joint objective by only about 1.8%.
+
+Next isolate the information in the release. With EI and angle frozen at B's values, a damping sweep shows that lower damping retains oscillations but predicts periods of about 0.24–0.26 s, compared with roughly 0.16 s in the measurement. Increasing damping suppresses the oscillations. That pattern motivates testing rate-dependent stiffness, while retaining release-state and timing uncertainty as competing explanations. [Residual investigation](../examples/cable_calibration/README.md#3-progress-and-the-reason-for-each-model-change)
+
+When C introduces transient rigidity and relaxation time, the recorded local analysis finds rank 2 of 2, with singular values about 51.78 and 17.55 against a threshold of 0.0518. These values use the configured parameter scaling and training residuals at three analysis anchors. They support a local search over those two directions with long-time EI and angle held fixed. They do not establish global uniqueness, identify the frozen quantities independently, or provide confidence intervals. [Sensitivity and identifiability record](../examples/cable_calibration/archive/C-comparison.json)
+
+Additional experiments were unavailable in this study. For a new study, direct clamp-pose measurements would constrain the boundary, repeated releases and an independently checked time base would constrain initialization and timing, and varied hold times or release amplitudes would help test material history. Record these as missing evidence rather than assuming that a good local fit resolves the competing explanations.
+
 ### Stage 7 Parameter estimation
 
 Estimate parameters for the declared model, observations, initial states, boundaries, and numerical settings. Choose staged or joint estimation based on the information available, cost, and parameter dependencies. In staged estimation, retain earlier evidence and uncertainty. Recheck parameters jointly within those constraints where needed, and confirm that system-level adjustments still explain component experiments.
@@ -233,7 +337,7 @@ Estimate parameters for the declared model, observations, initial states, bounda
 | Forces and torques | Resistance, load paths, stiffness, dissipation | Sensor offsets and gravity/inertia-compensation errors |
 | Tactile observations and slip | Local contact, grasping, tangential response | Confounding between sensing elastomer and object parameters |
 | Force-displacement and cyclic curves | Contact events, energy, hysteresis, locking | Time alignment and rate effects |
-| Task-success events | Task boundaries and failure modes | Incorrect loads and compensation during successful execution |
+| Task-success events | Task boundaries and failure modes | A successful run can still hide wrong loads or parameter compensation |
 
 Whether these observations uniquely determine parameters depends on the full problem. Shape and motion also depend on mass, boundaries, and initial states. Record hold time and relaxation state when using static observations to estimate long-term stiffness. DiffTactile combines motion, force, and tactile evidence. [R16]
 
@@ -285,6 +389,41 @@ Recheck candidate numerical accuracy under critical conditions and assess how un
 
 Include interpretation conditions, interval or feasible-set methods, loss and residual diagnostics, and unresolved issues with the parameter values.
 
+#### Cable example: revising the estimate from its residuals
+
+Start with a loss whose terms correspond to the observations and acceptance requirements. A/B give equal weight to the no-plug left static, right static and release experiments, using coordinate scales of 3 mm for static shapes and 4 mm for dynamics. Retain each experiment's RMSE and maximum error alongside the combined objective.
+
+| Model | Search and evidence | Result and next question |
+|---|---|---|
+| A: EI and damping | CMA-ES, 16 candidates over two generations; joint static/dynamic fit | Left static improves, right static worsens; dynamic maximum error is 12.084 mm, just above the 12 mm limit. Investigate the boundary and search budget |
+| B: add a shared angle | CMA-ES, 24 candidates over three generations; joint fit with rigid clamp | Training stopping target is reached. Freeze the static estimates conditionally and inspect the remaining dynamic waveform |
+| B*: damping only | A 17-point grid with EI and angle frozen | Damping alone trades oscillation amplitude against period. Test a material model with rate-dependent stiffness |
+| C: SLS transient rigidity and relaxation time | CMA-ES, 128 candidates over 16 generations | dynamic RMSE and maximum error meet the stated limits; retain the waveform diagnostics and numerical scope |
+
+A ends at its generation budget, B at its training target, B* after exhausting its grid, and C at its generation budget. A's failure within a small budget does not demonstrate that the model has no better fit. B's configuration also includes qualification and warm-start work, so the A → B change is not a controlled angle-only experiment. The [case configurations](../examples/cable_calibration/configs/) preserve the corresponding starts, bounds and stopping rules.
+
+For B* and C, use the same dynamic objective so their comparison has a defined meaning:
+
+$$
+L_{\mathrm{dyn}}=0.5\,\mathrm{MSE}_{\mathrm{all}}+0.5\,\mathrm{MSE}_{\mathrm{distal}\ z}.
+$$
+
+Both terms use a 4 mm coordinate scale and the same 28 scored frames. The distal term uses z at 130, 140 and 150 mm along the cable, preserving sensitivity to oscillation near the free end. This is a changed scoring protocol from A/B; compare B* with C under it rather than interpreting all four objectives as the same quantity. [Evaluator](../examples/cable_calibration/backends/staged_evaluator.py)
+
+The SLS model places a relaxing Maxwell branch in parallel with the long-time bending stiffness. Freeze EI∞ at B's 0.00222896 N m² and the shared angle at +0.29056°, set the old physical viscous bending damping to zero, and search ΔEI over 0.001–0.009 N m² and τ over 0.015–0.1 s on logarithmic scales. Initialize the internal state using the observed pre-release history. C gives ΔEI = 0.00269861 N m² and τ = 0.0343552 s, so the instantaneous rigidity EI₀ = EI∞ + ΔEI is 0.00492757 N m². These are conditional point estimates; no statistical intervals were established.
+
+| Model | left static RMSE (mm) | right static RMSE (mm) | dynamic RMSE / maximum (mm) |
+|---|---:|---:|---:|
+| Initial baseline | 3.486 | 0.421 | 6.366 / 25.127 |
+| A | 0.699 | 2.395 | 3.230 / 12.084 |
+| B | 0.238 | 0.887 | 1.617 / 9.016 |
+| B* | — | — | 1.598 / 9.353 |
+| C | 0.241 | 0.886 | 0.844 / 3.203 |
+
+These are coordinate errors under the declared masks; C's static values are separate checks after the dynamic fit. The comparable B* → C objective falls from 0.509257 to 0.122177, a 76.0% reduction. The first trough/peak timing improves to 0.08/0.16 s, but later peak intervals of 0.20/0.18 s still differ from the measured 0.16/0.16 s. Use this improvement as evidence for the model within the observed window, while retaining the unresolved timing and transfer questions. [Scores and parameters](../examples/cable_calibration/README.md#3-progress-and-the-reason-for-each-model-change)
+
+The completed example covers no-plug fitting, static rechecks and numerical qualification. Its observations were used to estimate parameters and choose the model, so these results establish fit quality under the stated conditions; independent response validation remains a separate requirement. The [archive check](../examples/cable_calibration/README.md#1-verify-the-reported-results-without-simulation) reproduces the reported scores from saved predictions and processed observations on the CPU.
+
 ### Stage 8 Independent response prediction
 
 Freeze the candidate, then predict shapes, trajectories, forces, or events using data withheld from parameter, model, scoring, and threshold selection. Cover the claimed motions, speeds, loads, lengths, boundaries, and contact modes. Report aggregate and local errors, systematic bias, and failure conditions.
@@ -317,13 +456,13 @@ Handle correlation between objects, batches, or consecutive trials through exper
 
 A release should let another user reconstruct the problem and interpret the conclusion. Preserve model and solver versions and their dependencies, numerical settings, parameters and Registry, data and processing versions, scoring and thresholds, search records, post-freeze validation, applicability, and unresolved issues.
 
-The model card should state what evidence supports each of the three goals and which goals remain incomplete. Software status `accepted` covers the configured checks, data, and thresholds. Record the scope of fixed-configuration repeatability or pending real-system testing explicitly.
+The model card should state what evidence supports each of the three goals and which goals remain incomplete. Software status `accepted` covers the configured checks, data, and thresholds. If numerical qualification used `repeatability` mode only, or real-system testing is still pending, say so in the model card.
 
 Recalibration triggers can include geometry or sensor changes, maintenance and wear, controller updates, loads/rates/temperatures outside the supported domain, solver or discretization changes, and persistent excessive residuals. Retain previous results and identify new evidence and validation conditions for each update.
 
 ## 3 Connecting a problem to Newton Calibration
 
-Once you have defined the problem, Newton Calibration checks the data, runs analysis and search, retests the candidate, and records the results. Arrange real measurements, model selection, statistical inference, and real-system acceptance in the surrounding workflow. [User guide](user-guide.md)
+Once you have defined the problem, Newton Calibration checks the data, runs analysis and search, retests the candidate, and records the results. Arrange real measurements, model selection, statistical inference, and real-system acceptance in the surrounding workflow. The [user guide](user-guide.md) covers installation, the demo command, and the Python API.
 
 ### 3.1 Run a complete minimal example
 
@@ -353,7 +492,7 @@ print(result.run_directory)
 print(result.asset_path)
 ```
 
-The factory constructs the members. `run()` starts simulation and optimization and executes the lifecycle. Create a fresh `Tuning` instance for each run and call `run()` directly, since `prepare()` itself begins the lifecycle. [User guide](user-guide.md)
+The factory constructs the members, and `run()` executes the lifecycle, including simulation and optimization. Each `Tuning` object runs once, so construct a new one for each run. Call `run()` rather than `prepare()`; `run()` calls `prepare()` for you.
 
 For a real object, supply measured evidence and an adapter that implements the contracts below.
 
@@ -835,19 +974,13 @@ For a robot adapter, define joint actuation, initial states, control timing, and
 
 ### 3.4 Contracts to check during integration
 
-Supply `[T,D]` reference values, `[T]` times, Boolean `[T,D]` masks, and positive broadcastable scales. `group` identifies an acquisition group. `Evidence` rejects shared labels across training and validation. Use acquisition records to establish independence, and provide image processing, camera calibration, and data collection externally.
+Check these contracts before the first complete run. The Section 3.3 subsection named in each item gives the details.
 
-`Evidence` has `train_data` and `validation_data` inputs. Manage development and sealed-data uses through external registration and selections across runs. `Experiment.repeats` repeats simulation against one reference. Register independent real acquisitions separately with appropriate groups.
-
-Define each parameter with the five arguments of `Parameter(name, bounds, baseline, unit="1", transform="linear")`. Log transforms require a positive lower bound. Asset and parameter baselines must agree. Search keys and `Template.fixed_parameters` must be disjoint. Preserve provenance, dependencies, and applicability in a separate Registry or experimental specification.
-
-Implement `Asset.create_environment(template, parameter_values, experiment_settings)` in the adapter. It interprets `Template.experiment_settings[experiment.id]` as inputs, initial states, boundaries, and seeds. Give each environment independent mutable state, and read effective model values through `Environment.applied_parameters`.
-
-Return aligned `Trace` times, `[T,D]` values, and optional `[T,N,3]` display positions from `Environment.run(times, seed=..., deadline=...)`. Use the template's integration settings. Report expected candidate failures with `SimulationError` and preserve implementation errors separately. The backend must cooperate with deadline checks, and a blocked simulation can exceed the thread-based execution deadline.
-
-Custom scoring must return objectives, metrics, constraints, validity masks, and residual features. The lifecycle and validator read `metrics[:,1]` as `max_error`. Preserve that position and meaning or adapt the relevant members together.
-
-Ordinary assets run in independent environments with parallelism set by `Rollout.capacity`. For backend batching, implement `Asset.create_batch_environment` and preserve candidate order and per-candidate readback/result identity. GPU batching and distributed execution require backend support. [User guide](user-guide.md)
+- Evidence (Section 3.3.1). Supply `[T,D]` reference values, `[T]` times, Boolean `[T,D]` masks, and positive broadcastable scales. `Evidence` rejects a group label shared by training and validation data, but the label itself does not prove independence, so keep the acquisition records. `Evidence` holds only training and validation data. Track development and sealed-data use across runs outside the module, along with image processing, camera calibration, and data collection.
+- Parameters and template (Sections 3.3.2 and 3.3.3). The asset baseline must equal the `Parameters` baseline, search keys must be disjoint from `Template.fixed_parameters`, and log-transformed parameters need a positive lower bound. Keep provenance, dependencies, and applicability in the Registry or experimental specification.
+- Adapter (Section 3.3.4). `create_environment()` reads `Template.experiment_settings[experiment.id]` as inputs, initial states, boundaries, and seeds, builds independent mutable state, and reports values read back from the model through `applied_parameters`. `run()` uses the template's integration settings and returns a `Trace` aligned with the reference times. Raise `SimulationError` only for expected candidate failures, not for implementation errors. The backend must check the deadline itself, because a blocked simulation can run past the thread-based execution deadline.
+- Scoring (Section 3.3.6). A custom evaluator returns all five arrays and keeps maximum error in `metrics[:,1]`, which `Tuning` and `Validator` read. Change the affected members together if that column moves.
+- Execution (Section 3.3.5). Ordinary assets run in independent environments on `Rollout.capacity` threads. A batch environment must preserve candidate order and per-candidate readback and results. GPU batching and distributed execution need backend support; see [running candidates together](user-guide.md#running-candidates-together) in the user guide.
 
 ### 3.5 Lifecycle and analysis scope
 
@@ -855,7 +988,7 @@ Ordinary assets run in independent environments with parallelism set by `Rollout
 
 Choose the numerical qualification mode explicitly. The default, `qualification_mode="refinement"`, requires at least one refinement that changes numerical or discretization settings. To check repeatability at fixed settings, select `qualification_mode="repeatability"` and `refinements=()`. Independent environments use the same settings and seeds, with scope reported as `fixed_configuration_only`. Check numerical convergence and cross-seed variation separately.
 
-Initial qualification probes the baseline and normalized vectors filled with 0.25 and 0.75. The lifecycle repeats numerical qualification for the final candidate. **Both initial and final core numerical checks use training experiments.** Check other parameter regions and new validation loads or contact modes separately when they fall within the claimed domain.
+Initial qualification probes the baseline and normalized vectors filled with 0.25 and 0.75. The lifecycle repeats numerical qualification for the final candidate. Both initial and final core numerical checks use training experiments. Check other parameter regions and new validation loads or contact modes separately when they fall within the claimed domain.
 
 `precision_tolerance` limits the maximum absolute change in `Evaluator.features`. Features incorporate residual scales, experiment weights, and valid sample counts. A physical tolerance such as 0.5 mm therefore requires an explicit mapping or an additional physical-unit metric.
 
@@ -877,7 +1010,7 @@ Identifiability analysis uses finite differences at the same three anchors in no
 
 `Validator` and related members define acceptance thresholds. `Decision.target` governs search stopping. The default lifecycle requires nonempty validation data for an accepted release, even with low training error.
 
-`max_trials` limits training candidates. `max_rollouts` includes baseline, analysis, qualification, training, retesting, and validation. `max_seconds` covers the complete run. Leave budget for export/reload, validation, and final numerical checks. Checkpoints retain state for inspection. Automatic resume remains unimplemented. [User guide](user-guide.md)
+`max_trials` limits training candidates. `max_rollouts` includes baseline, analysis, qualification, training, retesting, and validation. `max_seconds` covers the complete run. Leave budget for export/reload, validation, and final numerical checks. Checkpoints retain state for inspection, but a run cannot yet resume from one automatically. See [budgets and acceptance](user-guide.md#6-budgets-and-acceptance) in the user guide.
 
 ### 3.7 Result files
 
@@ -891,7 +1024,7 @@ Identifiability analysis uses finite differences at the same three anchors in no
 | `comparison.usda` | Visualization exported from saved trajectories |
 | `release/asset.json`, `release/template.json`, `release/manifest.json` | Accepted asset, reconstruction conditions, and release manifest |
 
-Default asset JSON stores parameters, adapter type, and construction configuration. Rebuilding simulation requires that adapter and the template. `Play` exports animated points/trajectories to USDA and displays saved states. [User guide](user-guide.md)
+Default asset JSON stores parameters, adapter type, and construction configuration. Rebuilding simulation requires that adapter and the template. `Play` exports animated points/trajectories to USDA and displays saved states. The user guide shows [how to read the artifacts](user-guide.md#7-read-the-artifacts).
 
 ## 4 Using residuals to plan the next iteration
 
@@ -920,7 +1053,7 @@ Increase the search budget if candidates are still improving and the current bud
 - **R3** Huan and Marzouk, 2013. Information-gain-based design for targeted parameters. [Simulation-based optimal Bayesian experimental design for nonlinear systems][R3]
 - **R4** MIT *Underactuated Robotics*. Equation structure, prediction error, and simulation-error identification. [System Identification][R4]
 - **R5** Wensing et al., 2017. Physical-consistency constraints on inertial parameters. [Linear Matrix Inequalities for Physically-Consistent Inertial Parameter Identification][R5]
-- **R6** Brynjarsdóttir and O’Hagan, 2014. Confounding between model discrepancy and parameter interpretation. [Learning about physical parameters][R6]
+- **R6** Brynjarsdóttir and O'Hagan, 2014. Confounding between model discrepancy and parameter interpretation. [Learning about physical parameters][R6]
 - **R7** Yang et al., 2025. DPSI, joint material/environment identification, and observation/loss design. [Differentiable Physics-based System Identification for Robotic Manipulation of Elastoplastic Materials][R7]
 - **R8** Papamakarios and Murray, 2016. Simulation-based inference with intractable likelihoods. [Fast ε-free Inference of Simulation Models with Bayesian Conditional Density Estimation][R8]
 - **R9** Rackauckas et al. Combining physical and learnable model terms. [Universal Differential Equations for Scientific Machine Learning][R9]
@@ -931,6 +1064,8 @@ Increase the search budget if candidates are still improving and the current bud
 - **R14** NIST/SEMATECH *e-Handbook of Statistical Methods*, Section 7.2.4.1. Binomial-proportion intervals. [Confidence intervals][R14]
 - **R15** Antonova et al., 2023. Combining global and local methods for difficult simulation objectives. [Rethinking Optimization with Differentiable Simulation from a Global Perspective][R15]
 - **R16** *DiffTactile*, ICLR 2024. Multiple contact observations and differentiable calibration. [DiffTactile project and paper][R16]
+
+## Related documents
 
 - [Installation, API entry points, budgets, and outputs](user-guide.md)
 - [Public core exports](../newton_calibration/__init__.py)
