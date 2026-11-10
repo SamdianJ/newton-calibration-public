@@ -2,7 +2,9 @@
 
 [Home](../README.md) · [Skills](codex-skills.md) · [Real cable example](../examples/cable_calibration/README.md)
 
-The [calibration guide](calibration-guide.md) covers the engineering workflow, member responsibilities and arguments, a fully assembled example, and troubleshooting from residuals.
+Start with the Newton XPBD example to run a calibration, inspect its outputs, and assemble all ten members. [Quick start](quickstart-preview.md)
+
+Use the calibration workflow to plan experiments and interpret residuals, and the API reference to look up member arguments and contracts. [Calibration workflow](calibration-guide.md) · [API reference](api-reference-preview.md)
 
 ## 1. Install
 
@@ -86,7 +88,7 @@ Use a fresh instance for each run. Do not call `prepare()` followed by `run()` o
 
 ## 4. Assemble your own case
 
-Use [the bundled synthetic demo helpers](../newton_calibration/examples.py) for complete demo instances, and [the cable factory](../examples/cable_calibration/run.py) as an example of assembling real observations and custom solver members through the public API.
+The Newton XPBD example shows the full construction of an asset, environment, evidence, and calibration members through the public API. The cable factory assembles real observations and custom solver members. [Full assembly example](quickstart-preview.md#assemble-the-calibration-yourself) · [Cable factory](../examples/cable_calibration/run.py)
 
 1. **Evidence:** create Experiment objects with reference `[T,D]`, times `[T]`, broadcastable positive scales, a Boolean `[T,D]` mask, weights and acquisition-group IDs. Separate training and validation acquisition groups. Slicing one recording does not create an independent experiment.
 2. **Parameters:** define units, bounds, baselines and linear/log transforms. The asset baseline must match exactly. Define only the parameters you are actually fitting.

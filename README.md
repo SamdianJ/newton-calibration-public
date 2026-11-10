@@ -2,7 +2,7 @@
 
 Composable, evidence-based simulation parameter calibration for the Newton ecosystem.
 
-The framework uses the `newton_calibration` Python package and `newton-calibration` CLI. The core remains simulator-independent; the cable example provides a Newton VBD adapter.
+The framework uses the `newton_calibration` Python package and `newton-calibration` CLI. The sliding and cable examples connect it to Newton's XPBD and VBD solvers through adapters.
 
 [Contributing](CONTRIBUTING.md) · [Repository instructions](AGENTS.md) · [Apache-2.0 license](LICENSE)
 
@@ -10,9 +10,11 @@ Newton Calibration turns measured observations, a simulator adapter and a parame
 
 [Local report preview](docs/publishing-results.md) · [User guide](docs/user-guide.md) · [Codex skills](docs/codex-skills.md) · [Cable A → B → C example](examples/cable_calibration/README.md)
 
-For task definition, experiment design, detailed member usage, and residual-based troubleshooting, see the [calibration guide](docs/calibration-guide.md).
+Start with the Newton XPBD example to run a calibration, inspect its outputs, assemble the members, and connect your own observations and simulator. [Quick start](docs/quickstart-preview.md)
 
-## Quick start
+Use the calibration workflow for task definition, experiment design, and residual-based troubleshooting. Consult the API reference for member arguments and contracts. [Calibration workflow](docs/calibration-guide.md) · [API reference](docs/api-reference-preview.md)
+
+## Run the core demos
 
 Python 3.11+; the core requires NumPy. Newton is **not** a core dependency.
 
@@ -90,6 +92,7 @@ A → B addresses a boundary hypothesis prompted by left/right residuals. It is 
 
 | Task | Required environment |
 |---|---|
+| Newton XPBD quickstart | Newton Calibration, pinned Newton source and Warp on CPU, as specified in the [quickstart setup](docs/quickstart-preview.md#install) |
 | Generic synthetic demos | Newton Calibration with NumPy; no Newton |
 | Re-score archived cable traces | Core dependencies on CPU; no Newton or new simulation |
 | Construct or rerun cable calibration | Newton Calibration, SciPy, pinned Newton source and Warp; the recorded simulations used CUDA |
