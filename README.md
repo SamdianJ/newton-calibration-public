@@ -6,12 +6,20 @@ The goal is a collection of recipes: complete calibration workflows for typical 
 
 > **Pre-release.** This package has not had a release yet. The API, file formats and command line can change without notice.
 
+| Guide | Use it to |
+|---|---|
+| [Quick start](docs/quickstart-preview.md) | Run a Newton XPBD calibration, inspect the outputs, and connect your own observations and model |
+| [Calibration workflow](docs/calibration-guide.md) | Define the problem, design experiments, and investigate calibration failures |
+| [API reference](docs/api-reference-preview.md) | Look up member arguments, interfaces, and contracts |
+| [Cable case study](examples/cable_calibration/README.md) | Follow the measured cable case, inspect its results, and reproduce the workflow |
+
 ## Requirements
 
 - Python 3.11 or later. NumPy is the only core dependency.
+- The [Newton XPBD quick start](docs/quickstart-preview.md#install) uses pinned Newton and Warp versions and runs on CPU.
 - The [cable example](examples/cable_calibration/README.md) needs a pinned Newton revision to simulate. Its archived results used a CUDA GPU. A different device changes the numerical conditions.
 
-## Quick start
+## Run the core demos
 
 ```bash
 git clone https://github.com/newton-physics/newton-calibration.git
@@ -87,6 +95,7 @@ A → B addresses a boundary hypothesis prompted by left/right residuals. It is 
 
 | Task | Required environment |
 |---|---|
+| Newton XPBD quick start | Newton Calibration, pinned Newton source and Warp on CPU, as specified in the [quick start setup](docs/quickstart-preview.md#install) |
 | Generic synthetic demos | Newton Calibration with NumPy; no Newton |
 | Re-score archived cable traces | Core dependencies on CPU; no Newton or new simulation |
 | Construct or rerun cable calibration | Newton Calibration, SciPy, pinned Newton source and Warp; the recorded simulations used CUDA |
