@@ -16,7 +16,7 @@ python -m pip install -e ".[newton]"
 python -m examples.box_friction_calibration.run --workspace workspace/newton-sliding
 ```
 
-The example runs on the CPU. The first run compiles Warp kernels. The command prints acceptance, the stopping reason, fitted parameters, the run directory, and the released asset path. Exit code `0` means acceptance. A completed rejected or inconclusive run returns `1`.
+The example runs on the CPU with one worker by default. Add `--capacity 4` to run up to four episodes concurrently. The first run compiles Warp kernels. The command prints acceptance, the stopping reason, fitted parameters, the run directory, and the released asset path. Exit code `0` means acceptance. A completed rejected or inconclusive run returns `1`.
 
 The checked environment uses Linux x86_64, Python 3.12, Newton `1.9.0.dev0` at revision `c53345412d401232beff0bc71dcb39ce554fdf96`, and Warp `1.17.0`. The `newton` extra records these versions in `pyproject.toml` so the installation command selects the tested runtime. Warp 1.17 is supported by this Newton revision and supports NVIDIA R545–R579 drivers, while Warp 1.18 requires R580 or newer for GPU execution. [Example dependencies](../../pyproject.toml) · [Newton source revision](https://github.com/newton-physics/newton/commit/c53345412d401232beff0bc71dcb39ce554fdf96) · [Newton installation requirements](https://github.com/newton-physics/newton/blob/c53345412d401232beff0bc71dcb39ce554fdf96/README.md#requirements)
 
