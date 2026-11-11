@@ -11,125 +11,81 @@ The goal is a collection of recipes: complete calibration workflows for typical 
 
 > **Pre-release.** This package has not had a release yet. The API, file formats and command line can change without notice.
 
-## Requirements
+Start with a Newton XPBD box friction example, then connect your own measurements and model. The cable study shows how static and dynamic experiments guide parameter estimation and model refinement.
 
-- Python 3.11 or later. NumPy is the only core dependency.
-- The [cable example](examples/cable_calibration/README.md) needs a pinned Newton revision to simulate. Its archived results used a CUDA GPU. A different device changes the numerical conditions.
+**[Quickstart](docs/quickstart.md) · [Calibration workflow](docs/calibration-guide.md) · [API reference](docs/api-reference.md) · [Examples](#examples)**
 
-## Quick start
+## Quickstart
+
+Fit the friction of a sliding box with Newton's `SolverXPBD`. This example runs on CPU and compares simulated motion with analytical reference trajectories whose friction is known.
+
+The core package requires Python 3.11+ and NumPy. From a repository checkout, activate a Python environment and install the Newton example dependencies.
 
 ```bash
-git clone https://github.com/newton-physics/newton-calibration.git
-cd newton-calibration
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install -e ".[cma,dev]"
+python -m pip install -e ".[newton]"
+python -m examples.box_friction_calibration.run --workspace workspace/newton-sliding
+```
 
-# A complete CPU calibration using an independent analytical reference:
-newton-calibration demo --case sliding --optimizer grid --workspace workspace/sliding
+The `newton` extra selects the tested Newton 1.6.0.dev0 revision and Warp 1.17.0 from `pyproject.toml`. The first run compiles Warp kernels. See the [setup and scope](examples/box_friction_calibration/README.md) for environment details.
 
-# Two parameters, CMA-ES:
-newton-calibration demo --case oscillator --optimizer cma_es --workspace workspace/oscillator
+Expect `accepted` and a friction coefficient close to `0.35`. The command prints the run directory and accepted asset path. Open `result.json` for the outcome and `run_state.json` for the analysis and validation reports.
 
-# Re-score the real cable's archived results, without Newton or simulation:
+Continue with the **[step-by-step quickstart](docs/quickstart.md)** to inspect the saved run, assemble the calibration yourself, replace the simulator adapter, or switch from a single environment to multiple environments.
+
+## Examples
+
+| Example | What it demonstrates | Start here |
+|---|---|---|
+| Sliding box · Newton XPBD | Fit one physical parameter against analytical evidence, check numerical accuracy, and validate at a held-out initial speed | [Run and inspect](docs/quickstart.md) · [Source](examples/box_friction_calibration/) |
+| Measured cable · Newton VBD | Use static shapes and release motion to fit parameters, interpret residuals, and refine the model | [Calibration workflow](docs/calibration-guide.md) · [Case study](examples/cable_calibration/README.md) |
+
+### Cable release experiment
+
+[![No-plug cable release: measured vertical motion compared with viscous and SLS models, with coordinate RMSE of 1.598 mm and 0.844 mm respectively](examples/cable_calibration/reports/cable_calibration_preview.png)](examples/cable_calibration/README.md)
+
+The completed no-plug experiment compares viscous bending damping (B*) with a standard linear solid (SLS) model (C), using the same observations and objective. Coordinate RMSE decreases from **1.598 mm to 0.844 mm** over the scored x/z channels. These are errors on the fitting recording; the archived run's formal outcome remains `rejected_validation`.
+
+The [case study](examples/cable_calibration/README.md) explains the experimental conditions, model changes, numerical checks, and limits of these results. It also includes the measured data, archived predictions, and solver setup. View the [English report](examples/cable_calibration/reports/cable_calibration_en.html) or [Chinese report](examples/cable_calibration/reports/cable_calibration_zh.html) using the [local preview instructions](docs/publishing-results.md).
+
+To check the archived cable scores on CPU with the core dependencies installed:
+
+```bash
 python -m examples.cable_calibration.verify
 ```
 
-Use `newton-calibration inspect workspace/sliding/<run-id>` to read a result.
-The demo CLI exits with code 0 only for an accepted result. See the [user guide](docs/user-guide.md) for installation, API usage, outputs and failure interpretation.
+This command re-scores saved traces without starting Newton. For lightweight sliding and oscillator demos using NumPy, see the [user guide](docs/user-guide.md).
 
-## Architecture
+## How it works
 
-Ten members compose a Tuning instance; `RunState` is owned by Tuning.
-
-| Member | Responsibility |
-|---|---|
-| Evidence | Observations, masks, scales, acquisition groups and train/validation split |
-| Asset | Fresh environments, applied parameter readback, export/reload |
-| Template | Fixed experimental conditions, discretization and numerical refinements |
-| Parameters | Units, bounds, baselines and linear/log transforms |
-| Rollout | Isolated trial × experiment × repeat execution |
-| Evaluator | Batched NumPy losses, metrics, constraints and residual features |
-| Optimizer | GridSearch / CMA-ES ask and tell |
-| Decision | Sole continue/stop authority and all-phase budgets |
-| Validator | Frozen-candidate training retest and validation |
-| Play | Saved-trajectory comparison and USDA point animation |
+A `Tuning` instance brings together the evidence, simulator adapter, physical parameters, and search and validation rules:
 
 ```text
-freeze inputs → baseline & numerical qualification → local sensitivity / SVD
-→ Decision → ask → rollout → score → tell → stop
-→ export/reload → training retest → validation → final numerical checks
-→ release only if accepted
+Define evidence and parameters → check baseline and numerical accuracy
+→ search physical parameters with fixed numerical settings
+→ reload the candidate → validate and recheck numerical accuracy
+→ release an asset if accepted
 ```
 
-Numerical qualification defaults to explicitly declared refinements. `Template(qualification_mode="repeatability", refinements=())` instead checks repeated execution of the same fixed configuration. Reports record this narrower scope; repeatability does not establish timestep or discretization convergence.
+The adapter owns model construction, parameter application, simulation, and observations. The calibration members handle execution, scoring, search, and validation through one `Tuning.run()` lifecycle.
 
-A new case composes these objects. It does not replace `Tuning.run()`.
-See the [class diagram](docs/tuning-class-diagram.md) and [design](docs/generic-calibration-workflow-design.md).
+- **[Calibration workflow](docs/calibration-guide.md):** choose the goal, design experiments, and decide what the evidence supports.
+- **[Quickstart](docs/quickstart.md):** connect observations and a simulator, then run the workflow.
+- **[API reference](docs/api-reference.md):** configure members, implement adapters, and read result files.
+- **[Capabilities and limits](docs/implementation-status.md):** check supported execution modes and the scope of diagnostics.
 
-## Real example: cable calibration
-
-[![Cable calibration results: errors and measured/predicted dynamics](examples/cable_calibration/reports/cable_calibration_preview.png)](examples/cable_calibration/reports/cable_calibration_en.html)
-
-**[English HTML report](examples/cable_calibration/reports/cable_calibration_en.html)** · [Chinese report](examples/cable_calibration/reports/cable_calibration_zh.html)
-
-The cable calibration was performed with **Newton VBD, using NVIDIA Warp on a CUDA GPU**. TaskTuning managed the calibration lifecycle and scored observations with PyTorch. The repository includes processed observations, 14 archived traces, stage-specific Newton adapters, portable configurations, and bilingual HTML reports.
-
-| Stage | What changed | No-plug dynamic RMSE | Formal historical result |
-|---|---|---:|---|
-| A | Fit bending rigidity and damping | 3.230 mm | rejected_training |
-| B | Add one shared mount-angle correction | 1.617 mm | rejected_validation |
-| B* | Freeze static parameters; re-fit damping with distal weighting | 1.598 mm | rejected_validation |
-| C | Replace viscous bending damping with SLS transient rigidity and relaxation time | 0.844 mm | rejected_validation |
-
-A → B addresses a boundary hypothesis prompted by left/right residuals. It is not a controlled angle-only ablation. B* → C uses the same observations and objective; SLS reduces that objective by **76.0%**, but the plugged case still fails and remains numerically unqualified.
-
-- [Case walkthrough and rerun instructions](examples/cable_calibration/README.md)
-- [Downloadable English HTML](examples/cable_calibration/reports/cable_calibration_en.html) · [Downloadable Chinese HTML](examples/cable_calibration/reports/cable_calibration_zh.html) — download the reports or use the [local preview](docs/publishing-results.md).
-- [Historical results](examples/cable_calibration/archive/) · [portable stage configurations](examples/cable_calibration/configs/)
-
-### Which environment do I need?
-
-| Task | Required environment |
-|---|---|
-| Generic synthetic demos | Newton Calibration with NumPy; no Newton |
-| Re-score archived cable traces | Core dependencies on CPU; no Newton or new simulation |
-| Construct or rerun cable calibration | Newton Calibration, SciPy, pinned Newton source and Warp; the recorded simulations used CUDA |
-| Run stage C (SLS) | The same stack plus the bundled SLS adaptation applied to the pinned Newton base |
-
-The historical cable environment used Python 3.12.13, Newton 1.6.0.dev0 at commit `d37f4d3d341ccce1e06a1dff21e9a054759b4855`, Warp 1.17.0, and an RTX 5070 Ti Laptop GPU. PyTorch 2.9.1+cpu handled scoring: **CPU PyTorch does not imply CPU Newton simulation**.
-
-Installing `.[cable,cma]` does not install Newton or apply the SLS patch. Follow the [Newton environment and stage setup](examples/cable_calibration/README.md#5-construct-or-rerun-a-stage-with-newton) before using `--run`. Generic quick-start success and archive verification do not validate a new Newton environment. Raw MOV files, complete search histories and the full Newton source tree are not bundled.
-
-## Codex skills
-
-The five sibling directories in [codex-skills/](codex-skills/) form one coordinated configuration module:
-
-- `standard-tuning`: intake, decisions, a shared specification and a real Tuning factory.
-- `tuning-evidence`: Evidence / Evaluator / Validator.
-- `tuning-environment`: Asset / Template / Rollout / Play.
-- `tuning-search`: Parameters / Optimizer / Decision.
-- `tuning-adapter`: minimal member adapters when existing implementations are insufficient.
-
-See [installation and usage](docs/codex-skills.md). Skills do not install Python dependencies or create a second calibration loop.
-
-## Development and limits
+## Development
 
 ```bash
 python -m pip install -e ".[cma,dev]"
 python -m newton_calibration.tests
 python -m examples.cable_calibration.verify
-ruff check newton_calibration examples/cable_calibration/run.py examples/cable_calibration/verify.py
+uvx pre-commit run -a
 ```
 
-The core currently supports synchronous batches, threaded environments, optional multi-candidate environments and NumPy scoring. Thread speedup depends on the backend. It does not provide process-level forced termination, distributed multi-GPU execution, automatic resume, Bayesian optimization or PBT.
+See [Contributing](CONTRIBUTING.md) for development and validation guidelines, and [Codex skills](docs/codex-skills.md) for configuring calibration tasks with the bundled skills.
 
-Local SVD diagnostics are not confidence intervals or proofs of global identifiability. USDA output is a trajectory visualization, not a complete physical USD asset. **Search termination, training fit and accepted release are different outcomes.**
-
-See [capabilities and limits](docs/implementation-status.md) and [skills usage](docs/tuning-skills-implementation.md).
-
-Reports are bundled for [local viewing](docs/publishing-results.md). See [development and validation](CONTRIBUTING.md).
+[Class diagram](docs/tuning-class-diagram.md) · [Workflow design](docs/generic-calibration-workflow-design.md) · [Repository instructions](AGENTS.md)
 
 ## License
 
-[Apache-2.0](LICENSE). See [NOTICE](NOTICE) for attribution.
+Source code uses Apache-2.0 and project documentation uses CC-BY-4.0. See the license texts and attribution notice. [Apache-2.0](LICENSE) · [CC-BY-4.0](LICENSE-DOCS) · [NOTICE](NOTICE)
