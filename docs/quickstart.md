@@ -272,7 +272,7 @@ A batch environment receives several complete parameter dictionaries for one exp
 5. Read each box's position at the requested times and return one `Trace` per candidate in input order. For this example, each trace has `values` shaped `[T,1]` and `positions` shaped `[T,1,3]`. Copy retained samples and convert GPU observations to NumPy arrays for the existing evaluator.
 6. Check the deadline during simulation. Return a `SimulationError` in a failed candidate's slot when the failure can be isolated. An exception from the whole call affects the chunk. Release adapter-owned resources in `close()` when needed.
 
-Newton's world identifiers control collision isolation. The adapter must also preserve the correspondence between parameter readback, simulated bodies, and returned traces. [Pinned Newton world construction](https://github.com/newton-physics/newton/blob/d37f4d3d341ccce1e06a1dff21e9a054759b4855/newton/_src/sim/builder.py#L4382) · [Batch interface](api-reference.md#batchenvironment-rollout-and-episode-execute-candidates)
+Newton's world identifiers control collision isolation. The adapter must also preserve the correspondence between parameter readback, simulated bodies, and returned traces. [Pinned Newton world construction](https://github.com/newton-physics/newton/blob/c53345412d401232beff0bc71dcb39ce554fdf96/newton/_src/sim/builder.py#L5689) · [Batch interface](api-reference.md#batchenvironment-rollout-and-episode-execute-candidates)
 
 Once `SlidingBatchEnvironment` implements these operations with the constructor arguments shown below, add this asset subclass alongside the adapter. It inherits the single-environment construction method and the asset export/reload behavior from `SlidingAsset`.
 

@@ -26,7 +26,7 @@ python -m pip install -e ".[newton]"
 python -m examples.box_friction_calibration.run --workspace workspace/newton-sliding
 ```
 
-The `newton` extra selects the tested Newton 1.6.0.dev0 revision and Warp 1.17.0 from `pyproject.toml`. The first run compiles Warp kernels. See the [setup and scope](examples/box_friction_calibration/README.md) for environment details.
+The `newton` extra selects the tested Newton 1.9.0.dev0 revision and Warp 1.17.0 from `pyproject.toml`. The first run compiles Warp kernels. See the [setup and scope](examples/box_friction_calibration/README.md) for environment details.
 
 Expect `accepted` and a friction coefficient close to `0.35`. The command prints the run directory and accepted asset path. Open `result.json` for the outcome and `run_state.json` for the analysis and validation reports.
 

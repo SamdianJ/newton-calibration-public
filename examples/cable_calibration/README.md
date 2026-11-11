@@ -139,7 +139,11 @@ The `versions.device=cpu` field in exported configurations describes TaskTuning 
 
 ### Solver compatibility
 
-Stage C requires the recorded base plus `solver/sls-adapted.patch`. The factory checks three solver-file hashes and the actual import location. A released package or another branch is not interchangeable with this pinned source.
+New runs use Newton `1.9.0.dev0` at commit `c53345412d401232beff0bc71dcb39ce554fdf96` with Warp `1.17.0`. Stage C additionally requires [sls-current.patch](solver/sls-current.patch). The factory checks the rod builder, rod geometry, and VBD solver/test hashes against [current-solver.json](solver/current-solver.json), as well as the actual import location. A released package or another branch is not interchangeable with this pinned source.
+
+The current adapters use `newton.Rod` and the six-DOF rod layout: shear on axes 0–1, stretch on axis 2, bending on axes 3–4, and twist on axis 5. Both bending axes receive the clamp half-span correction and parameter readback checks. The current SLS patch preserves the relaxing bending branch and measured material-history initialization.
+
+The table above, stage configurations, archived traces, [sls-adapted.patch](solver/sls-adapted.patch), and [expected-hashes.json](solver/expected-hashes.json) describe the historical runs. They remain unchanged. New run metadata records the current solver revision, file hashes, and patch identity; historical scores and qualification passes do not apply automatically to the new runtime.
 
 The adapter uses `compute_geometric_rod_kappa_cached_z`, the solver moment/strain arrays, and `_rigid_pose_rebaseline_mask` to initialize and preserve material history from observed pre-release motion. These private bindings are specific to the pinned solver. A replacement solver or public API must reproduce the same initialization and trajectory behavior before its revision and hashes are updated.
 
@@ -147,18 +151,18 @@ The adapter uses `compute_geometric_rod_kappa_cached_z`, the solver moment/strai
 
 Use a separate environment if an existing Newton installation must remain intact. Python 3.12 matches the recorded minor version. Activate that environment and use its `python -m pip` for all installations below. These instructions target the recorded Linux setup; other platforms have not been qualified for this cable example.
 
-The `cable` extra installs SciPy, not Newton. A plain `pip install newton` or the current tip of the SLS branch does not select the tested solver sources. Install the pinned checkout and apply the archived adaptation as shown, rather than substituting a same-named package or another revision.
+The `cable` extra installs SciPy, not Newton. A plain `pip install newton` or the current tip of the SLS branch does not select the tested solver sources. Install the pinned checkout and apply the current adaptation as shown, rather than substituting a same-named package or another revision.
 
 From the repository root:
 
 ```bash
 python -m pip install -e ".[cable,cma]"
 git clone https://github.com/newton-physics/newton.git ../newton-calibration-base
-git -C ../newton-calibration-base checkout --detach d37f4d3d341ccce1e06a1dff21e9a054759b4855
+git -C ../newton-calibration-base checkout --detach c53345412d401232beff0bc71dcb39ce554fdf96
 python -m pip install -e ../newton-calibration-base "warp-lang==1.17.0"
 
-git -C ../newton-calibration-base worktree add --detach ../newton-calibration-sls d37f4d3d341ccce1e06a1dff21e9a054759b4855
-git -C ../newton-calibration-sls apply "$PWD/examples/cable_calibration/solver/sls-adapted.patch"
+git -C ../newton-calibration-base worktree add --detach ../newton-calibration-sls c53345412d401232beff0bc71dcb39ce554fdf96
+git -C ../newton-calibration-sls apply "$PWD/examples/cable_calibration/solver/sls-current.patch"
 
 python -m examples.cable_calibration.run --stage A --newton-source ../newton-calibration-base
 python -m examples.cable_calibration.run --stage B --newton-source ../newton-calibration-base
@@ -190,7 +194,7 @@ This preflight initializes device discovery but does not simulate the cable. Suc
 
 ### Construction versus a new simulation
 
-Without --run these commands only construct a fresh real Tuning. They check three pinned solver-file hashes and import provenance; they do not simulate or create a run directory. Run stages in separate Python processes because Newton imports are process-global.
+Without --run these commands only construct a fresh real Tuning. They check the pinned runtime-file hashes and import provenance; they do not simulate or create a run directory. Run stages in separate Python processes because Newton imports are process-global.
 
 To launch a **new** calibration, add --run and select a workspace:
 
@@ -213,13 +217,13 @@ Core tests, archive scoring, factory construction, and trajectory replay serve d
 | [data](data/) | Processed observations, normalized experiments, prehistory, compressed numeric traces |
 | [configs](configs/) | Portable stage configurations, parameters, fixed settings, splits, budgets |
 | [archive](archive/) | Original outcomes, summaries, diagnostics, expected metrics, provenance |
-| [backends](backends/) | Historical adapters with byte-identical stage copies shared |
-| [solver](solver/) | Adapted SLS patch, upstream provenance, expected hashes, Newton license |
+| [backends](backends/) | Stage adapters for the current pinned Newton runtime |
+| [solver](solver/) | Current and historical SLS patches, runtime hashes, upstream provenance, Newton license |
 | [reports](reports/) | Self-contained English and retained Chinese HTML reports |
 | [verify.py](verify.py) | CPU archive verification |
 | [run.py](run.py) | Factory/CLI using the standard Tuning lifecycle |
 
-The factory selects the historical implementation required by each stage:
+The factory selects the adapter required by each stage:
 
 | Stage | Simulation adapter and rollout | Scoring |
 |---|---|---|
@@ -229,7 +233,7 @@ The factory selects the historical implementation required by each stage:
 | C | `backends/c/`, including the SLS extension | Shared `DistalDynamicEvaluator` |
 
 All stages share `backends/validation.py`; B* and C share
-`backends/staged_evaluator.py`. Only byte-identical copies are consolidated.
+`backends/staged_evaluator.py`. B and B* use the same simulation adapter.
 A retains its original boundary/frame handling and readback tolerances; C retains
 its SLS initialization hooks and environment selection. `newton_backend.py` builds
 and advances the physical model, while `rollout.py` batches candidates and handles
