@@ -417,7 +417,7 @@ python -m pip install -e ".[cable]"
 python -m examples.cable_calibration.verify
 ```
 
-The check covers all 14 retained traces and reports the historical run outcomes. The completed fitting example in the guide uses the no-plug observations. The archived runs retain `rejected_training` for A and `rejected_validation` for B, B*, and C under their original acceptance protocols. Keep those outcomes with the scores when interpreting or reproducing the study. [Archive scope and reproduction](../examples/cable_calibration/README.md#1-verify-the-reported-results-without-simulation)
+The verifier checks all 14 archived traces. On the no-plug fitting recording, B* gives 1.598 mm coordinate RMSE and C gives 0.844 mm. [Reproduce the no-plug scores](../examples/cable_calibration/README.md#1-verify-the-reported-results-without-simulation) · [Original run records](../examples/cable_calibration/archive/)
 
 ## Work with the skills
 
