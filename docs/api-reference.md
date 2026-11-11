@@ -1,6 +1,11 @@
+<!--
+SPDX-FileCopyrightText: Copyright (c) 2026 The Newton Developers
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # Newton Calibration API reference
 
-[Quick start](quickstart-preview.md) · [Calibration guide](calibration-guide.md) · [Public exports](../newton_calibration/__init__.py)
+[Quick start](quickstart.md) · [Calibration guide](calibration-guide.md) · [Public exports](../newton_calibration/__init__.py)
 
 These interfaces apply to Newton Calibration 0.2.0. Import core classes from `newton_calibration`. The quick start shows a complete assembly using the public classes and an explicit simulator adapter.
 
@@ -8,14 +13,14 @@ These interfaces apply to Newton Calibration 0.2.0. Import core classes from `ne
 
 | Responsibility | Interfaces |
 |---|---|
-| Observations | [Evidence and Experiment](#1-evidence-and-experiment-store-observations) |
-| Search values and fixed conditions | [Parameters](#2-parameter-and-parameters-define-the-search-space), [Template](#3-template-fixes-a-runs-configuration) |
-| Simulation | [Asset, Environment, Trace](#4-asset-environment-and-trace-connect-the-simulator), [Rollout](#5-batchenvironment-rollout-and-episode-execute-candidates) |
-| Scoring, search, and stopping | [Evaluator](#6-evaluator-converts-trajectories-into-objectives-and-constraints), [Optimizer](#7-optimizer-gridsearch-and-cmaes-propose-candidates), [Decision](#8-decision-controls-budgets-and-stopping) |
-| Candidate checks and presentation | [Validator](#9-validator-checks-the-exported-candidate), [Play](#10-play-displays-saved-trajectories) |
-| Lifecycle and results | [Tuning](#11-tuning-assembles-members-and-returns-results), [analysis scope](#13-lifecycle-and-analysis-scope), [result files](#15-result-files) |
+| Observations | [Evidence and Experiment](#evidence-and-experiment-store-observations) |
+| Search values and fixed conditions | [Parameters](#parameter-and-parameters-define-the-search-space), [Template](#template-fixes-a-runs-configuration) |
+| Simulation | [Asset, Environment, Trace](#asset-environment-and-trace-connect-the-simulator), [Rollout](#batchenvironment-rollout-and-episode-execute-candidates) |
+| Scoring, search, and stopping | [Evaluator](#evaluator-converts-trajectories-into-objectives-and-constraints), [Optimizer](#optimizer-gridsearch-and-cmaes-propose-candidates), [Decision](#decision-controls-budgets-and-stopping) |
+| Candidate checks and presentation | [Validator](#validator-checks-the-exported-candidate), [Play](#play-displays-saved-trajectories) |
+| Lifecycle and results | [Tuning](#tuning-assembles-members-and-returns-results), [analysis scope](#lifecycle-and-analysis-scope), [result files](#result-files) |
 
-## 1 Evidence and Experiment store observations
+## Evidence and Experiment store observations
 
 `Experiment` holds one experiment's reference outputs and scoring conditions. `Evidence` groups experiments into training and validation data and records their sources. Put control commands, loads, and initial states in `Template.experiment_settings` under the same experiment ID. The environment uses those settings to run the forward problem.
 
@@ -43,7 +48,7 @@ Evidence(train_data, validation_data=(), *, sources=None)
 
 Robot channels might be `[q_1, …, q_n, qd_1, …, qd_n]` with separate position and velocity scales. Cable centerlines can be flattened into channels at fixed arc-length samples, with masks for occlusion and initialization windows. Register independent real recordings as separate `Experiment`s and preserve acquisition relationships with `group`. Document channel order, frames, and units.
 
-## 2 Parameter and Parameters define the search space
+## Parameter and Parameters define the search space
 
 `Parameter` defines one scalar to estimate. `Parameters` keeps the vector in the supplied order and converts between physical values, normalized values, and search coordinates for parameter combinations. `Asset` applies the values to the solver.
 
@@ -74,7 +79,7 @@ For example, `Parameter("friction", (0.05, 0.65), 0.15)` defines dimensionless f
 
 The initial mapping normalizes each parameter independently. After identifiability analysis, `Tuning` can call `set_mapping(origin, basis)` to establish combination coordinates, then `freeze()` to lock the space. Decoded candidates still undergo physical-bound checks. Construct new `Parameters` when changing bounds or baseline for another run. Keep physical definitions, evidence, and dependencies in the [parameter registry](calibration-guide.md#record-parameter-definitions-and-justified-ranges).
 
-## 3 Template fixes a run's configuration
+## Template fixes a run's configuration
 
 `Template` stores the physical conditions, numerical settings, and experiment inputs shared by all candidates. When constructing an environment, it merges fixed and candidate parameters and passes the experiment's settings to the asset adapter. The adapter defines and interprets the dictionary keys.
 
@@ -94,11 +99,11 @@ Template(*, numeric_settings, discretization, fixed_parameters,
 | `precision_tolerance` | Default `0.05`, positive and finite, limiting maximum feature changes in numerical checks |
 | `qualification_mode` | Default `"refinement"`, requiring valid refinement settings during a run. `"repeatability"` with empty `refinements` checks a fixed configuration |
 
-The quickstart's sliding example uses `SolverXPBD` on the CPU with a 1/480 s timestep, eight iterations, and float32 state. It fixes gravity with `fixed_parameters={"gravity": 9.81}` and independently checks a 1/960 s timestep and 16 iterations. The adapter consumes these settings when constructing and stepping the Newton solver. A robot environment must also consume the control period and command sequence explicitly. A cable SLS environment must preserve pre-release history and internal-state initialization conditions. [Sliding configuration](../examples/sliding_calibration/run.py) · [Cable factory](../examples/cable_calibration/run.py)
+The quickstart's sliding example uses `SolverXPBD` on the CPU with a 1/480 s timestep, eight iterations, and float32 state. It fixes gravity with `fixed_parameters={"gravity": 9.81}` and independently checks a 1/960 s timestep and 16 iterations. The adapter consumes these settings when constructing and stepping the Newton solver. A robot environment must also consume the control period and command sequence explicitly. A cable SLS environment must preserve pre-release history and internal-state initialization conditions. [Sliding configuration](../examples/box_friction_calibration/run.py) · [Cable factory](../examples/cable_calibration/run.py)
 
-`resolve()` checks configuration, `freeze()` locks it, `snapshot()` returns serializable configuration data, and `template_id` identifies it. `refined(change)` creates a frozen refined template, with each refinement applied independently to the original. `instantiate(asset, parameter_values, experiment)` constructs one environment, and `instantiate_batch(...)` constructs a batch. `Rollout` normally calls these methods. [Lifecycle and analysis scope](#13-lifecycle-and-analysis-scope) explains qualification scope and tolerance scaling.
+`resolve()` checks configuration, `freeze()` locks it, `snapshot()` returns serializable configuration data, and `template_id` identifies it. `refined(change)` creates a frozen refined template, with each refinement applied independently to the original. `instantiate(asset, parameter_values, experiment)` constructs one environment, and `instantiate_batch(...)` constructs a batch. `Rollout` normally calls these methods. [Lifecycle and analysis scope](#lifecycle-and-analysis-scope) explains qualification scope and tolerance scaling.
 
-## 4 Asset, Environment, and Trace connect the simulator
+## Asset, Environment, and Trace connect the simulator
 
 `Asset` holds construction settings, baseline parameters, and parameter-binding logic. `Environment` owns the mutable simulation state for one candidate and experiment and returns a `Trace`. When adding a robot or material model, implement model construction, parameter application, initial-state reset, and observation readout in these classes.
 
@@ -128,9 +133,9 @@ Raise `SimulationError` for expected physical or numerical candidate failures an
 
 Assets also provide `load_or_create()`, `snapshot()`, `asset_id`, `export(parameter_values, path)`, and `reload(path)`. Default export writes `newton-calibration-asset/1` JSON with the asset type, candidate parameters, and construction configuration. Calling `reload(path)` on the original asset returns an instance of the same type with the candidate baseline. Its `create_environment()` must still construct fresh mutable state. Subclasses that cache mutable models must handle rebuilding and isolation.
 
-The quickstart's `SlidingAsset` constructs a Newton model and `SolverXPBD` through their public APIs. The package's `newton_calibration.examples` module also exports NumPy-based `SlidingAsset` and `OscillatorAsset` demo adapters. The cable factory connects the measured cable study to its pinned solver. [Newton sliding adapter](../examples/sliding_calibration/backend.py) · [NumPy demo exports](../newton_calibration/examples.py) · [Cable factory](../examples/cable_calibration/run.py)
+The quickstart's `SlidingAsset` constructs a Newton model and `SolverXPBD` through their public APIs. The package's `newton_calibration.examples` module also exports NumPy-based `SlidingAsset` and `OscillatorAsset` demo adapters. The cable factory connects the measured cable study to its pinned solver. [Newton sliding adapter](../examples/box_friction_calibration/backend.py) · [NumPy demo exports](../newton_calibration/examples.py) · [Cable factory](../examples/cable_calibration/run.py)
 
-## 5 BatchEnvironment, Rollout, and Episode execute candidates
+## BatchEnvironment, Rollout, and Episode execute candidates
 
 `Rollout` runs the candidate/experiment combinations, checks parameter readback, and collects results. Each candidate, experiment, and repeat produces an `Episode`, identified by `(trial_id, experiment_id, repeat)`.
 
@@ -163,7 +168,7 @@ Each successful batch member returns a `Trace`. For a physical failure, return a
 
 For example, 8 candidates, 2 training experiments, and `repeats=3` produce 48 episodes. The rollout budget counts all 48 even when the backend simulates candidates together.
 
-## 6 Evaluator converts trajectories into objectives and constraints
+## Evaluator converts trajectories into objectives and constraints
 
 `Evaluator` matches the complete set of episodes to reference data by experiment, candidate, and repeat. It returns an objective, metrics, constraints, and residual features for each candidate. The objective ranks candidates, constraints determine feasibility, and features support sensitivity and numerical qualification.
 
@@ -194,7 +199,7 @@ For positions in meters, `scale=0.03` and `max_normalized_error=2.0` impose an a
 
 `metric_spec` records the scoring protocol and `evaluation_id` identifies it. Custom evaluators can override `score_batch()` and `metric_spec`, including objectives, units, constraints, and every adjustable scoring setting in the protocol. Preserve array shapes, order, and feature count. Current `Tuning` and `Validator` read maximum error from `metrics[:,1]`, so retain that column's contract or adapt the affected members together.
 
-## 7 Optimizer, GridSearch, and CMAES propose candidates
+## Optimizer, GridSearch, and CMAES propose candidates
 
 `Optimizer` uses an ask/tell protocol. After parameter analysis, `Tuning` calls `initialize(parameters)`. Once the budget allows a batch, it calls `ask(batch_size)` and returns scores through `tell(result)`. The optimizer must receive feedback for the pending batch before proposing another.
 
@@ -220,7 +225,7 @@ Use `GridSearch` to explore a few parameters and inspect responses across their 
 
 To implement another algorithm, subclass `Optimizer` and implement `ask()`. Extend `initialize()`, `tell()`, `diagnostics()`, and `state_dict()` as needed, and optionally provide `checkpoint()` as CMA-ES does. `diagnostics()["exhausted"]` informs `Decision` about search-space exhaustion. Shared stopping and budget decisions remain in `Decision.next_action()`.
 
-## 8 Decision controls budgets and stopping
+## Decision controls budgets and stopping
 
 Before baseline, analysis, training, and validation work, `Decision` checks state and budgets and returns `DecisionResult(action, reason, batch_size=0)`. `Tuning` uses that decision to start the work or finish the run.
 
@@ -242,9 +247,9 @@ Decision(max_trials=512, max_rollouts=10000, max_generations=100,
 
 Budget limits are positive, `target` is finite and nonnegative, and enabled `patience` is a positive batch count. `next_action(state, request)` receives a read-only state snapshot and work request, then returns `action="continue"` or `"stop"`. Its `reason` enters decision history.
 
-For example, `Decision(max_trials=41, max_generations=3, max_rollouts=200)` accommodates a one-dimensional 41-point grid in batches of 16, with episode capacity for analysis and validation. Estimate the full budget using experiments, repeats, parameter dimension, and refinements. `Validator` supplies final acceptance thresholds. See [stopping reasons and acceptance](#14-stopping-reasons-acceptance-and-budgets).
+For example, `Decision(max_trials=41, max_generations=3, max_rollouts=200)` accommodates a one-dimensional 41-point grid in batches of 16, with episode capacity for analysis and validation. Estimate the full budget using experiments, repeats, parameter dimension, and refinements. `Validator` supplies final acceptance thresholds. See [stopping reasons and acceptance](#stopping-reasons-acceptance-and-budgets).
 
-## 9 Validator checks the exported candidate
+## Validator checks the exported candidate
 
 `Validator` checks acceptance for each experiment. `Tuning` exports and reloads the selected asset, then retests it on training experiments and evaluates it on held-out validation experiments. Both checks call `validate()` and produce separate reports.
 
@@ -265,7 +270,7 @@ With default squared error, `max_objective=0.01` requires normalized RMSE of at 
 
 `Tuning` supplies the `evaluate` callback, locks candidate identity, and performs budgeting, simulation, and scoring. Custom validators can add condition grouping or historical-evidence restrictions while preserving report fields and candidate identity. The default validator returns `status="unvalidated"` for empty validation data. `Tuning` organizes numerical rechecks separately and includes them in the final report.
 
-## 10 Play displays saved trajectories
+## Play displays saved trajectories
 
 `Play()` uses saved `Trace.positions` from episodes, matching before/after trajectories by `(experiment_id, repeat)`. The default comparison contains `baseline` and `calibrated` tracks and an acceptance flag.
 
@@ -277,7 +282,7 @@ With default squared error, `max_objective=0.01` requires normalized RMSE of at 
 
 `references` is currently a reserved argument. Default tracks come from the two simulated position sequences. Extend comparison or presentation to overlay measurements or plot joints and torques.
 
-After a run, inspect `tuning.comparison`. USDA and GL display require position tracks. Run the following after the [complete example](quickstart-preview.md#assemble-the-calibration-yourself) in the quick start.
+After a run, inspect `tuning.comparison`. USDA and GL display require position tracks. Run the following after the [complete example](quickstart.md#assemble-the-calibration-yourself) in the quick start.
 
 ```python
 if tuning.comparison and tuning.comparison["tracks"]:
@@ -290,7 +295,7 @@ if tuning.comparison and tuning.comparison["tracks"]:
 
 `Tuning.run()` attempts to generate `comparison.usda` automatically. The example above exports another copy. Presentation errors appear in `RunState.errors`. Scoring, validation, and numerical checks determine acceptance.
 
-## 11 Tuning assembles members and returns results
+## Tuning assembles members and returns results
 
 Pass the ten members to `Tuning` to run preparation, analysis, search, export/reload, retesting, and validation. Compose members and implement case adapters for your application.
 
@@ -323,17 +328,17 @@ Start with `result = tuning.run()`. Calling `prepare()`, `sensitivity()`, `ident
 | `asset_path` | Accepted `release/asset.json` path, otherwise `None` |
 | `run_directory` | Directory containing this run's records and results |
 
-## 12 Contracts to check during integration
+## Contracts to check during integration
 
 Check these contracts before the first complete run. The linked member reference gives the details for each check.
 
-- Evidence ([Evidence and Experiment store observations](#1-evidence-and-experiment-store-observations)). Supply `[T,D]` reference values, `[T]` times, Boolean `[T,D]` masks, and positive broadcastable scales. `Evidence` rejects a group label shared by training and validation data, but the label itself does not prove independence, so keep the acquisition records. `Evidence` holds only training and validation data. Track development and sealed-data use across runs outside the module, along with image processing, camera calibration, and data collection.
-- Parameters and template ([Parameters](#2-parameter-and-parameters-define-the-search-space) and [Template](#3-template-fixes-a-runs-configuration)). The asset baseline must equal the `Parameters` baseline, search keys must be disjoint from `Template.fixed_parameters`, and log-transformed parameters need a positive lower bound. Keep provenance, dependencies, and applicability in the Registry or experimental specification.
-- Adapter ([Asset, Environment, and Trace connect the simulator](#4-asset-environment-and-trace-connect-the-simulator)). `create_environment()` reads `Template.experiment_settings[experiment.id]` as inputs, initial states, boundaries, and seeds, builds independent mutable state, and reports values read back from the model through `applied_parameters`. `run()` uses the template's integration settings and returns a `Trace` aligned with the reference times. Raise `SimulationError` only for expected candidate failures, not for implementation errors. The backend must check the deadline itself, because a blocked simulation can run past the thread-based execution deadline.
-- Scoring ([Evaluator converts trajectories into objectives and constraints](#6-evaluator-converts-trajectories-into-objectives-and-constraints)). A custom evaluator returns all five arrays and keeps maximum error in `metrics[:,1]`, which `Tuning` and `Validator` read. Change the affected members together if that column moves.
-- Execution ([BatchEnvironment, Rollout, and Episode execute candidates](#5-batchenvironment-rollout-and-episode-execute-candidates)). Ordinary assets run in independent environments on `Rollout.capacity` threads. A batch environment must preserve candidate order and per-candidate readback and results. GPU batching and distributed execution need backend support; see [running candidates together](#16-running-candidates-together).
+- Evidence ([Evidence and Experiment store observations](#evidence-and-experiment-store-observations)). Supply `[T,D]` reference values, `[T]` times, Boolean `[T,D]` masks, and positive broadcastable scales. `Evidence` rejects a group label shared by training and validation data, but the label itself does not prove independence, so keep the acquisition records. `Evidence` holds only training and validation data. Track development and sealed-data use across runs outside the module, along with image processing, camera calibration, and data collection.
+- Parameters and template ([Parameters](#parameter-and-parameters-define-the-search-space) and [Template](#template-fixes-a-runs-configuration)). The asset baseline must equal the `Parameters` baseline, search keys must be disjoint from `Template.fixed_parameters`, and log-transformed parameters need a positive lower bound. Keep provenance, dependencies, and applicability in the Registry or experimental specification.
+- Adapter ([Asset, Environment, and Trace connect the simulator](#asset-environment-and-trace-connect-the-simulator)). `create_environment()` reads `Template.experiment_settings[experiment.id]` as inputs, initial states, boundaries, and seeds, builds independent mutable state, and reports values read back from the model through `applied_parameters`. `run()` uses the template's integration settings and returns a `Trace` aligned with the reference times. Raise `SimulationError` only for expected candidate failures, not for implementation errors. The backend must check the deadline itself, because a blocked simulation can run past the thread-based execution deadline.
+- Scoring ([Evaluator converts trajectories into objectives and constraints](#evaluator-converts-trajectories-into-objectives-and-constraints)). A custom evaluator returns all five arrays and keeps maximum error in `metrics[:,1]`, which `Tuning` and `Validator` read. Change the affected members together if that column moves.
+- Execution ([BatchEnvironment, Rollout, and Episode execute candidates](#batchenvironment-rollout-and-episode-execute-candidates)). Ordinary assets run in independent environments on `Rollout.capacity` threads. A batch environment must preserve candidate order and per-candidate readback and results. GPU batching and distributed execution need backend support; see [running candidates together](#running-candidates-together).
 
-## 13 Lifecycle and analysis scope
+## Lifecycle and analysis scope
 
 `run()` prepares and freezes inputs, evaluates the baseline and numerical qualification, analyzes sensitivity and identifiability, searches, exports/reloads the candidate, retests training experiments, validates, and performs final numerical checks. It then records results and creates a release package when acceptance conditions pass.
 
@@ -345,7 +350,7 @@ Initial qualification probes the baseline and normalized vectors filled with 0.2
 
 Identifiability analysis uses finite differences at the same three anchors in normalized parameter coordinates. It applies SVD to the combined training-feature sensitivity matrix. By default, insufficient rank yields an inconclusive result. With positive retained rank, `allow_rank_reduction=True` and `orthogonalize=True` permit search in the parameter combinations supported by the local sensitivity analysis, with omitted directions fixed at the normalized baseline. Zero rank stops the search. These orthogonalized coordinates describe local parameter combinations. Global physical separation and statistical intervals require further evidence.
 
-## 14 Stopping reasons, acceptance, and budgets
+## Stopping reasons, acceptance, and budgets
 
 `termination_reason` explains why search stopped. `acceptance` reports completion and outcome of the candidate's required checks. Target, generation, or time stopping conditions are evaluated separately from release eligibility.
 
@@ -361,9 +366,9 @@ Identifiability analysis uses finite differences at the same three anchors in no
 
 `Validator` and related members define acceptance thresholds. `Decision.target` governs search stopping. The default lifecycle requires nonempty validation data for an accepted release, even with low training error.
 
-`max_trials` limits training candidates. `max_rollouts` includes baseline, analysis, qualification, training, retesting, and validation. `max_seconds` covers the complete run. Leave budget for export/reload, validation, and final numerical checks. Checkpoints retain state for inspection, but a run cannot yet resume from one automatically. The [quick start](quickstart-preview.md#understand-the-result) explains how to read the two result fields together.
+`max_trials` limits training candidates. `max_rollouts` includes baseline, analysis, qualification, training, retesting, and validation. `max_seconds` covers the complete run. Leave budget for export/reload, validation, and final numerical checks. Checkpoints retain state for inspection, but a run cannot yet resume from one automatically. The [quick start](quickstart.md#understand-the-result) explains how to read the two result fields together.
 
-## 15 Result files
+## Result files
 
 | File | Purpose |
 |---|---|
@@ -375,19 +380,19 @@ Identifiability analysis uses finite differences at the same three anchors in no
 | `comparison.usda` | Visualization exported from saved trajectories |
 | `release/asset.json`, `release/template.json`, `release/manifest.json` | Accepted asset, reconstruction conditions, and release manifest |
 
-Default asset JSON stores parameters, adapter type, and construction configuration. Rebuilding simulation requires that adapter and the template. `Play` exports animated points/trajectories to USDA and displays saved states. The [quick start](quickstart-preview.md#inspect-the-saved-run) shows how to inspect a completed run.
+Default asset JSON stores parameters, adapter type, and construction configuration. Rebuilding simulation requires that adapter and the template. `Play` exports animated points/trajectories to USDA and displays saved states. The [quick start](quickstart.md#inspect-the-saved-run) shows how to inspect a completed run.
 
-## 16 Running candidates together
+## Running candidates together
 
 For independent environments, `Rollout(capacity=4)` runs up to four episodes on threads. An episode represents one candidate, experiment, and repeat.
 
 For a simulator that handles multiple candidates in one environment, implement `Asset.create_batch_environment()` and return a `BatchEnvironment`. It reports one applied-parameter mapping per candidate and returns one `Trace` or `SimulationError` per candidate in input order. Each chunk uses one experiment and repeat. `Rollout(worlds=4)` limits a chunk to four candidates. The adapter owns the simulator-specific batching implementation.
 
-The current batch path processes experiments, repeats, and chunks sequentially. Parallel execution occurs inside the batch environment. `capacity` controls the ordinary threaded path, and `worlds` controls the batch path's chunk size. The sliding quickstart shows the worker configuration and the adapter extension required for Newton multi-world execution. [Replace single env rollout with multi env rollout](quickstart-preview.md#replace-single-env-rollout-with-multi-env-rollout)
+The current batch path processes experiments, repeats, and chunks sequentially. Parallel execution occurs inside the batch environment. `capacity` controls the ordinary threaded path, and `worlds` controls the batch path's chunk size. The sliding quickstart shows the worker configuration and the adapter extension required for Newton multi-world execution. [Replace single env rollout with multi env rollout](quickstart.md#replace-single-env-rollout-with-multi-env-rollout)
 
 CPU threads and simulator batching have different memory and scheduling costs. Check candidate isolation, output order, parameter readback, and the backend's concurrency support before increasing capacity. [Bundled batching interfaces](../newton_calibration/examples.py)
 
-## 17 Compatibility and saved assets
+## Compatibility and saved assets
 
 Core imports use the `newton_calibration` root. The former core submodule paths remain deprecated compatibility aliases under the project's deprecation policy. The public demo helpers use `newton_calibration.examples`, and the migration utility uses `newton_calibration.migrate_asset`.
 

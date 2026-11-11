@@ -1,10 +1,15 @@
+<!--
+SPDX-FileCopyrightText: Copyright (c) 2026 The Newton Developers
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # Newton Calibration user guide
 
 [Home](../README.md) · [Skills](codex-skills.md) · [Real cable example](../examples/cable_calibration/README.md)
 
-Start with the Newton XPBD example to run a calibration, inspect its outputs, and assemble all ten members. [Quick start](quickstart-preview.md)
+Start with the Newton XPBD example to run a calibration, inspect its outputs, and assemble all ten members. [Quick start](quickstart.md)
 
-Use the calibration workflow to plan experiments and interpret residuals, and the API reference to look up member arguments and contracts. [Calibration workflow](calibration-guide.md) · [API reference](api-reference-preview.md)
+Use the calibration workflow to plan experiments and interpret residuals, and the API reference to look up member arguments and contracts. [Calibration workflow](calibration-guide.md) · [API reference](api-reference.md)
 
 ## 1. Install
 
@@ -21,6 +26,7 @@ Run these commands from the repository root. On Windows, activate `.venv\Scripts
 | Extra | Purpose |
 |---|---|
 | no extra | NumPy, GridSearch, headless scoring and USDA export |
+| newton | Tested Newton revision and Warp version for the box friction example |
 | cma | CMA-ES optimizer |
 | gl | Pyglet playback of saved traces |
 | dev | Ruff, pre-commit and package build tools |
@@ -88,7 +94,7 @@ Use a fresh instance for each run. Do not call `prepare()` followed by `run()` o
 
 ## 4. Assemble your own case
 
-The Newton XPBD example shows the full construction of an asset, environment, evidence, and calibration members through the public API. The cable factory assembles real observations and custom solver members. [Full assembly example](quickstart-preview.md#assemble-the-calibration-yourself) · [Cable factory](../examples/cable_calibration/run.py)
+The Newton XPBD example shows the full construction of an asset, environment, evidence, and calibration members through the public API. The cable factory assembles real observations and custom solver members. [Full assembly example](quickstart.md#assemble-the-calibration-yourself) · [Cable factory](../examples/cable_calibration/run.py)
 
 1. **Evidence:** create Experiment objects with reference `[T,D]`, times `[T]`, broadcastable positive scales, a Boolean `[T,D]` mask, weights and acquisition-group IDs. Separate training and validation acquisition groups. Slicing one recording does not create an independent experiment.
 2. **Parameters:** define units, bounds, baselines and linear/log transforms. The asset baseline must match exactly. Define only the parameters you are actually fitting.

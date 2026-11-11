@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: Copyright (c) 2026 The Newton Developers
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # Overview
 
 Newton is a project of the Linux Foundation and aims to be governed in a transparent, accessible way for the benefit of the community. All participation in this project is open and not bound to corporate affiliation. Participants are all bound to the Linux Foundation [Code of Conduct](https://lfprojects.org/policies/code-of-conduct/).
@@ -114,4 +119,9 @@ Before proposing to add project-maintained assets to `newton-assets`:
 
 ## Licensing
 
-Original contributions are Apache-2.0; retain third-party notices and identify the license of every new dependency. See [NOTICE](NOTICE) for the original contribution and the Newton patch. Runtime dependencies keep their own licenses: NumPy, SciPy, CMA-ES and Pyglet are BSD-licensed; consult the installed distributions for their complete notices.
+Code and bundled software example fixtures, including archived reports, use
+[Apache-2.0](LICENSE); project documentation uses [CC-BY-4.0](LICENSE-DOCS).
+CI checks SPDX headers and accepts both `The Newton Developers` and `Lightwheel`
+as copyright owners. Preserve existing notices and example/solver provenance
+(see [NOTICE](NOTICE)), and identify the license of every new dependency;
+dependencies retain their own licenses.

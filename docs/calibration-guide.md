@@ -1,6 +1,11 @@
+<!--
+SPDX-FileCopyrightText: Copyright (c) 2026 The Newton Developers
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # Task-oriented parameter identification and simulation calibration
 
-[Quick start](quickstart-preview.md) · [API reference](api-reference-preview.md) · [Cable study](../examples/cable_calibration/README.md)
+[Quick start](quickstart.md) · [API reference](api-reference.md) · [Cable study](../examples/cable_calibration/README.md)
 
 Use this guide to decide what a calibration should establish, design the evidence it needs, fit parameters, and judge the result. It applies to rigid bodies, deformable bodies, contact, and combined robotic systems. The completed 17 cm cable study illustrates the decisions with static shapes and release motion.
 
@@ -8,13 +13,13 @@ Begin with the quick start to run an example and connect your own measurements a
 
 An **adapter** connects a simulator to Newton Calibration. Its `Asset` and `Environment` classes construct the model, apply parameters, reset the experiment, and return simulated observations in the same units and order as the measurements.
 
-- [Choose the calibration goal](#11-choose-the-goal-and-the-evidence-it-needs).
-- [Work through the stages](#2-workflow-and-stage-deliverables).
-- [Use residuals to choose the next experiment or model change](#3-using-residuals-to-plan-the-next-iteration).
+- [Choose the calibration goal](#choose-the-goal-and-the-evidence-it-needs).
+- [Work through the stages](#workflow-and-stage-deliverables).
+- [Use residuals to choose the next experiment or model change](#using-residuals-to-plan-the-next-iteration).
 
-## 1 Goals, methods, and the role of the module
+## Goals, methods, and the role of the module
 
-### 1.1 Choose the goal and the evidence it needs
+### Choose the goal and the evidence it needs
 
 | Goal | What the evidence should establish |
 |---|---|
@@ -30,9 +35,9 @@ For a prediction goal, specify the motions, speeds, loads, and boundaries that t
 
 This workflow focuses the parameter search on physical or effective model parameters. First select numerical settings and check their effect on the responses, then freeze them during parameter estimation. Repeat numerical verification at the fitted parameters. The timestep, solver iterations, precision, and discretization are conditions under which the parameter result applies. If numerical checks call for a different configuration, revise that configuration and reassess the fit before using the result.
 
-### 1.2 Identification methods
+### Identification methods
 
-Newton Calibration currently implements black-box forward-simulation search through `GridSearch` and `CMAES`. The table below places that approach among other identification methods. The other rows require additional implementations or external workflows. Section 1.3 explains the built-in execution path.
+Newton Calibration currently implements black-box forward-simulation search through `GridSearch` and `CMAES`. The table below places that approach among other identification methods. The other rows require additional implementations or external workflows. The following section explains the built-in execution path.
 
 Choose a method based on the available equations, observations, gradients, statistical goal, and computational cost. Choose the model structure, estimation criterion, and optimizer separately. Several solution methods can work with the same physical model, and approaches can be combined. [R4](#ref-r4)
 
@@ -45,9 +50,9 @@ Choose a method based on the available equations, observations, gradients, stati
 | Bayesian identification and simulation-based inference (SBI) | Estimate parameter or predictive distributions under explicit prior, noise, and model-discrepancy assumptions | Supports uncertainty and multiple solutions. Check prior sensitivity, inference calibration, and posterior predictions |
 | Physical models with residual models | Use learnable terms to represent missing behavior | Specify whether compensation enters dynamics, observations, or control, and assess generalization and confounding with physical parameters |
 
-Examples include physical-consistency constraints for robot inertial parameters, DPSI's differentiable joint identification, conditional-density-based SBI, and Universal Differential Equations. Section 1.3 lists the methods available in Newton Calibration. [R5](#ref-r5) [R7](#ref-r7) [R8](#ref-r8) [R9](#ref-r9)
+Examples include physical-consistency constraints for robot inertial parameters, DPSI's differentiable joint identification, conditional-density-based SBI, and Universal Differential Equations. The following section lists the methods available in Newton Calibration. [R5](#ref-r5) [R7](#ref-r7) [R8](#ref-r8) [R9](#ref-r9)
 
-### 1.3 Newton Calibration uses black-box forward simulation and search
+### Newton Calibration uses black-box forward simulation and search
 
 ```math
 \theta
@@ -60,11 +65,11 @@ Black-box refers to how the optimizer uses the simulator. It proposes parameters
 
 CMA-ES, the cross-entropy method (CEM), parallel sampling, and Bayesian optimization can solve this kind of problem. Evaluating candidates in parallel can reduce wall-clock time, depending on backend batching, resource use, and the cost of each simulation.
 
-The built-in optimizers are `GridSearch` and `CMAES`. CEM, Bayesian optimization, differentiable optimization, and Bayesian posterior inference require additional members or external workflows. Use external systems for automated physical experiment design, policy training, domain-randomization training, and online adaptation. The [quick start](quickstart-preview.md#install) lists the extra each optimizer needs.
+The built-in optimizers are `GridSearch` and `CMAES`. CEM, Bayesian optimization, differentiable optimization, and Bayesian posterior inference require additional members or external workflows. Use external systems for automated physical experiment design, policy training, domain-randomization training, and online adaptation. The [quick start](quickstart.md#install) lists the extra each optimizer needs.
 
 The module freezes the problem definition, checks parameter bindings and numerical settings, and analyzes local sensitivity and identifiability. It then evaluates candidates within a budget and exports, reloads, retests, and validates the selected candidate. Measurement, model selection, and real-system experiments stay outside the module, in the wider engineering workflow.
 
-## 2 Workflow and stage deliverables
+## Workflow and stage deliverables
 
 The stages describe the engineering work needed to support a calibration claim. You choose the goal, model, measurements, and acceptance criteria. A configured `Tuning.run()` performs the numerical checks, local analysis, parameter search, and candidate checks supported by the module.
 
@@ -118,7 +123,7 @@ flowchart TD
 
 The stage examples below follow one task. A robot arm with a dexterous hand grasps a network cable, carries it, aligns the plug with the socket, inserts it until the latch engages, then releases the latch and pulls the plug out. The simulation must also predict the force during insertion.
 
-The task needs all three goals of Section 1.1, and evidence for one does not settle the others. The simulated robot can complete the insertion while the predicted peak insertion force is wrong, and a cable trajectory can fit well without identifying bending stiffness, clamp boundary and damping uniquely. Stages 1 and 2 treat the whole task. From Stage 3, the example follows the completed no-plug calibration in the [recorded 17 cm cable study](../examples/cable_calibration/README.md): register measured quantities, compare static and dynamic responses, investigate residuals, and qualify the fitted model under those conditions. The study provides no robot insertion or force-validation results. Its model variants A, B, B*, and C are successive calibration choices, distinct from the numbered workflow stages below.
+The task needs all three calibration goals, and evidence for one does not settle the others. The simulated robot can complete the insertion while the predicted peak insertion force is wrong, and a cable trajectory can fit well without identifying bending stiffness, clamp boundary and damping uniquely. Stages 1 and 2 treat the whole task. From Stage 3, the example follows the completed no-plug calibration in the [recorded 17 cm cable study](../examples/cable_calibration/README.md): register measured quantities, compare static and dynamic responses, investigate residuals, and qualify the fitted model under those conditions. The study provides no robot insertion or force-validation results. Its model variants A, B, B*, and C are successive calibration choices, distinct from the numbered workflow stages below.
 
 ### Stage 1 Task and domain of applicability
 
@@ -388,7 +393,7 @@ L(\theta)=\sum_e\frac{w_e}{\sum_jw_j}\frac{1}{R_e}
 
 Here, $s$ is `Experiment.scale`, $N_e$ counts valid observations, $w_e$ is experiment weight, and $R_e$ is `Experiment.repeats`, the number of simulation repetitions against the same reference. Register independently acquired real repetitions as separate experiments. The default metrics, `normalized_rmse` and `normalized_max_error`, are dimensionless.
 
-The built-in `cross_entropy` mode requires complete normalized probability rows. Event times, impulses, and work can be constructed as additional observation features under a declared protocol. MAE, Huber, Chamfer, or EMD require a suitable `Evaluator` implementation. Event extraction and probability calibration remain separate steps. Custom scoring must preserve the objective, metric, constraint, validity-mask, and feature contracts. Keep feature scales and dimensions consistent throughout a run for sensitivity and numerical checks. See the [integration contracts](api-reference-preview.md#12-contracts-to-check-during-integration) for metric-column requirements.
+The built-in `cross_entropy` mode requires complete normalized probability rows. Event times, impulses, and work can be constructed as additional observation features under a declared protocol. MAE, Huber, Chamfer, or EMD require a suitable `Evaluator` implementation. Event extraction and probability calibration remain separate steps. Custom scoring must preserve the objective, metric, constraint, validity-mask, and feature contracts. Keep feature scales and dimensions consistent throughout a run for sensitivity and numerical checks. See the [integration contracts](api-reference.md#contracts-to-check-during-integration) for metric-column requirements.
 
 #### Choose estimators for the problem structure
 
@@ -485,7 +490,7 @@ The model card should state what evidence supports each of the three goals and w
 
 Recalibration triggers can include geometry or sensor changes, maintenance and wear, controller updates, loads/rates/temperatures outside the supported domain, solver or discretization changes, and persistent excessive residuals. Retain previous results and identify new evidence and validation conditions for each update.
 
-## 3 Using residuals to plan the next iteration
+## Using residuals to plan the next iteration
 
 Identify how the run ended before changing the calibration. Check for execution errors, numerical candidate failures, exhausted budgets, training rejection, or validation failure. If the run completed with excessive error, inspect residuals by experiment, channel, and phase. Locate the problem in steady-state behavior, reversals, contact, peaks, or post-release motion.
 
@@ -526,7 +531,7 @@ Increase the search budget if candidates are still improving and the current bud
 
 ## Related documents
 
-- [Run and assemble a calibration](quickstart-preview.md).
-- [Member interfaces, lifecycle, and result contracts](api-reference-preview.md).
+- [Run and assemble a calibration](quickstart.md).
+- [Member interfaces, lifecycle, and result contracts](api-reference.md).
 - [Cable experiments, numerical scope, and reproduction](../examples/cable_calibration/README.md).
 - [Cable experimental specification](../examples/cable_calibration/TUNING-SPEC.md).
