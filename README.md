@@ -13,7 +13,12 @@ The goal is a collection of recipes: complete calibration workflows for typical 
 
 Start with a Newton XPBD box friction example, then connect your own measurements and model. The cable study shows how static and dynamic experiments guide parameter estimation and model refinement.
 
-**[Quickstart](docs/quickstart.md) · [Calibration workflow](docs/calibration-guide.md) · [API reference](docs/api-reference.md) · [Examples](#examples)**
+| Guide | Use it to |
+|---|---|
+| [Quick start](docs/quickstart.md) | Run a Newton calibration example, inspect the outputs, and connect your own observations and model |
+| [Calibration workflow](docs/calibration-guide.md) | Define the problem, design experiments, and investigate calibration failures |
+| [API reference](docs/api-reference.md) | Look up member arguments, interfaces, and contracts |
+| [Cable case study](examples/cable_calibration/README.md) | Follow the measured cable case, inspect its results, and reproduce the workflow |
 
 ## Quickstart
 
