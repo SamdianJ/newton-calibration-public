@@ -46,11 +46,6 @@ Continue with the **[step-by-step quickstart](docs/quickstart.md)** to inspect t
 | Robot actuators · Newton MuJoCo | Import fixed-base MJCF/URDF robots, fit multiple equivalent or native position gains, and replay resource bundles | [Robot workflow](examples/actuator/robot/README.md) |
 | Measured cable · Newton VBD | Use static shapes and release motion to fit parameters, interpret residuals, and refine the model | [Calibration workflow](docs/calibration-guide.md) · [Case study](examples/cable_calibration/README.md) |
 
-Robot actuator system identification with SolverMuJoCo is available in the
-[robot adapter](examples/actuator/robot/README.md). The [Go2 study](examples/actuator/robot/go2/README.md)
-provides public-data download and standalone GPU training commands, with a
-[population/sigma/budget report](examples/actuator/robot/go2/REPORT.md).
-
 ### Cable release experiment
 
 [![No-plug cable release: measured vertical motion compared with viscous and SLS models, with coordinate RMSE of 1.598 mm and 0.844 mm respectively](examples/cable_calibration/reports/cable_calibration_preview.png)](examples/cable_calibration/README.md)
@@ -66,6 +61,14 @@ python -m examples.cable_calibration.verify
 ```
 
 This command re-scores saved traces without starting Newton. For lightweight sliding and oscillator demos using NumPy, see the [user guide](docs/user-guide.md).
+
+### Robot sysid
+
+[![Go2 actuator calibration: training convergence by candidate count and elapsed time](examples/actuator/robot/go2/convergence.png)](examples/actuator/robot/go2/REPORT.md)
+
+The [Go2 study](examples/actuator/robot/go2/README.md) demonstrates robot actuator system identification with Newton's `SolverMuJoCo` GPU backend, fitting position-PD gains for 12 joints against public recordings. It provides pinned data downloads and standalone training commands that run without an agent or a persistent SSH connection.
+
+The [experiment report](examples/actuator/robot/go2/REPORT.md) compares optimizer batch size, initial sigma, random seeds, and 2,048/4,096-candidate budgets, including convergence, validation results, and limitations. See the [robot workflow](examples/actuator/robot/README.md) for MJCF/URDF import, parameter bindings, and candidate replay. The Go2 results describe equivalent gains under the fixed-base model and nominal recording timestamps; they are not hardware-qualified actuator parameters.
 
 ## How it works
 
