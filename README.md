@@ -42,7 +42,14 @@ Continue with the **[step-by-step quickstart](docs/quickstart.md)** to inspect t
 | Example | What it demonstrates | Start here |
 |---|---|---|
 | Sliding box · Newton XPBD | Fit one physical parameter against analytical evidence, check numerical accuracy, and validate at a held-out initial speed | [Run and inspect](docs/quickstart.md) · [Source](examples/box_friction_calibration/) |
+| Single-joint actuator · Newton Featherstone / MuJoCo | Fit equivalent position-PD gains against analytical or offline records, with sampled control and independent validation | [Run and recording format](examples/actuator/README.md) |
+| Robot actuators · Newton MuJoCo | Import fixed-base MJCF/URDF robots, fit multiple equivalent or native position gains, and replay resource bundles | [Robot workflow](examples/actuator/robot/README.md) |
 | Measured cable · Newton VBD | Use static shapes and release motion to fit parameters, interpret residuals, and refine the model | [Calibration workflow](docs/calibration-guide.md) · [Case study](examples/cable_calibration/README.md) |
+
+Robot actuator system identification with SolverMuJoCo is available in the
+[robot adapter](examples/actuator/robot/README.md). The [Go2 study](examples/actuator/robot/go2/README.md)
+provides public-data download and standalone GPU training commands, with a
+[population/sigma/budget report](examples/actuator/robot/go2/REPORT.md).
 
 ### Cable release experiment
 
